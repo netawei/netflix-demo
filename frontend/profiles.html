@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מי צופה?</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: #fff;
+    }
+    .center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+    h1 {
+      margin-bottom: 30px;
+      font-size: 35px;
+    }
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 30px;
+      width: 100%;
+      max-width: 700px;
+      margin-bottom: 30px;
+      list-style: none;
+      padding: 0;
+    }
+    .avatar {
+      text-align: center;
+      color: #aaa;
+      cursor: pointer;
+    }
+    .avatar img {
+      width: 150px;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      transition: transform 0.5s, border 0.5s;
+    }
+    .avatar img:hover {
+      transform: scale(1.1);
+      border-color: #555;
+    }
+    .avatar p {
+      margin-top: 10px;
+      color: #fff;
+      font-weight: bold;
+      font-size: 17px;
+    }
+    .btn-outline {
+      padding: 10px 20px;
+      border: 1px solid #555;
+      background: transparent;
+      color: #fff;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 17px;
+    }
+    .btn-outline:hover {
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+  <main class="center">
+    <h1>מי צופה?</h1>
+    <ul class="avatar-grid" id="profiles"></ul>
+    <button class="btn-outline">נהל פרופילים</button>
+  </main>
+
+  <script>
+    // מערך פרופילים
+    const profiles = [
+      { id: 1, name: "נטע", img: "https://images.unsplash.com/photo-1517191434949-5e90cd67d2b6?w=900" },
+      { id: 2, name: "אורח", img: "https://picsum.photos/seed/2/200" },
+      { id: 3, name: "ילדים", img: "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=900" },
+      { id: 4, name: "שני", img: "https://images.unsplash.com/photo-1665333354010-050f08f35907?w=900" }
+    ];
+
+    const profilesContainer = document.getElementById("profiles");
+
+    // יצירת פרופילים בעמוד
+    profiles.forEach(profile => {
+      const li = document.createElement("li");
+      li.classList.add("avatar");
+      li.innerHTML = `
+        <img src="${profile.img}" alt="${profile.name}">
+        <p>${profile.name}</p>
+      `;
+      li.addEventListener("click", () => {
+        // שמירת הפרופיל ב-localStorage
+        localStorage.setItem("activeProfile", JSON.stringify(profile));
+        // מעבר לעמוד הראשי
+        window.location.href = "main-page.html";
+      });
+      profilesContainer.appendChild(li);
+    });
+  </script>
+</body>
+</html>
