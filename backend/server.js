@@ -6,6 +6,7 @@ const dotenv = require("dotenv");
 const { connectDB } = require("./config/db");
 
 const userRoutes = require('./routes/userRoutes');
+const contentRoutes = require('./routes/contentRoutes');
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ app.use(session({
 
 
 app.use('/api/users', userRoutes);
-
+app.use('/api/content', contentRoutes);
 
 // Server
 const PORT = process.env.PORT || 5001;

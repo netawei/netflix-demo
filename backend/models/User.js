@@ -14,6 +14,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    profiles: [{
+        name: String,
+        avatar: String,
+        preferences: {
+          favoriteGenres: [String]
+        }
+      }],
     isAdmin: {
         type: Boolean,
         default: false
