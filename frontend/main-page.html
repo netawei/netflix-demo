@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>דף ראשי עם לייקים, מיון וחיפוש</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #111;
+      color: #fff;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      font-size: 20px;
+      background: #000;
+    }
+    .navbar .logo {
+      font-size: 30px;
+      font-weight: bold;
+      color: #e50914;
+    }
+    .navbar ul {
+      display: flex;
+      list-style: none;
+      gap: 20px;
+      margin: 0;
+      padding: 0;
+      align-items: center;
+    }
+    .navbar li a {
+      color: #fff;
+      text-decoration: none;
+    }
+    .navbar li a:hover {
+      color: #e50914;
+    }
+    #logoutBtn {
+      padding: 6px 12px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      background: #e50914;
+      color: #fff;
+      transition: background 0.2s;
+    }
+    #logoutBtn:hover {
+      background: #c50e15;
+    }
+    .content {
+      padding: 40px;
+      text-align: center;
+    }
+    .greeting {
+      margin-bottom: 20px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .search-box {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      width: 250px;
+      margin-bottom: 20px;
+      text-align: right;
+    }
+    .sort-btn {
+      cursor: pointer;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #e50914, #b00610);
+      border: none;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      transition: transform 0.2s, background 0.3s;
+    }
+    .sort-btn:hover {
+      background: linear-gradient(135deg, #f6121d, #c50e15);
+      transform: scale(1.05);
+    }
+    .catalog {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .item {
+      background: #222;
+      padding: 16px;
+      border-radius: 10px;
+      width: 200px;
+      text-align: right;
+      position: relative;
+      overflow: hidden;
+    }
+    .item img {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .item h2 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      color: #e50914;
+    }
+    .item p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+    .like-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      font-weight: bold;
+      border: none;
+      transition: background 0.2s, color 0.2s;
+      position: relative;
+    }
+    .like-btn.liked {
+      background: #e50914;
+      color: #fff;
+    }
+    .heart {
+      display: inline-block;
+      transition: transform 0.3s;
+      position: relative;
+      z-index: 2;
+    }
+    .heart.animate {
+      transform: scale(1.5);
+    }
+    .particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: #e50914;
+      border-radius: 50%;
+      animation: fly 0.6s forwards;
+      pointer-events: none;
+      z-index: 1;
+    }
+    @keyframes fly {
+      0% { transform: translate(0,0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--x), var(--y)) scale(0); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">Netflix</div>
+    <ul>
+      <li><a href="#">בית</a></li>
+      <li><a href="#">סדרות</a></li>
+      <li><a href="#">סרטים</a></li>
+      <li><a href="profiles.html">החלף פרופיל</a></li>
+      <li><button id="logoutBtn">התנתקות</button></li>
+    </ul>
+  </header>
+
+  <main class="content">
+    <div class="greeting" id="greeting"></div>
+    <input type="text" id="searchInput" class="search-box" placeholder="חפש סרט או סדרה...">
+    <br>
+    <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
+    <div class="catalog" id="catalog"></div>
+  </main>
+
+  <script>
+    const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
+    if (activeProfile) {
+      document.getElementById("greeting").textContent = `שלום, ${activeProfile.name}`;
+    } else {
+      window.location.href = "profiles.html";
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("activeProfile");
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("userEmail")
+      window.location.href = "index.html";
+    });
+
+    const catalog = [
+      { id: 1, name: "Stranger Things", year: 2016, genre: "מדע בדיוני / מתח", likes: 1200, img: "images/stranger_things.jpg" },
+      { id: 2, name: "The Witcher", year: 2019, genre: "פנטזיה / פעולה", likes: 950, img: "images/the_witcher.jpg" },
+      { id: 3, name: "Money Heist", year: 2017, genre: "פשע / דרמה", likes: 2100, img: "images/money_heist.jpg" },
+      { id: 4, name: "Breaking Bad", year: 2008, genre: "דרמה / פשע", likes: 3000, img: "images/breaking_bad.jpg" },
+      { id: 5, name: "Avatar", year: 2009, genre: "מדע בדיוני / הרפתקאות", likes: 1800, img: "images/avatar.jpg" },
+      { id: 6, name: "The Crown", year: 2016, genre: "דרמה / היסטוריה", likes: 700, img: "images/the_crown.jpg" },
+      { id: 7, name: "Inception", year: 2010, genre: "מדע בדיוני / פעולה", likes: 2500, img: "images/inception.jpg" }
+    ];
+
+    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+    const catalogDiv = document.getElementById("catalog");
+    const sortBtn = document.getElementById("sortBtn");
+    const searchInput = document.getElementById("searchInput");
+
+    const originalOrder = [...catalog];
+    let isSorted = false;
+
+    function renderCatalog(items) {
+      catalogDiv.innerHTML = "";
+      items.forEach(item => {
+        if (storedLikes[item.id] !== undefined) {
+          item.likes = storedLikes[item.id].likes;
+          item.liked = storedLikes[item.id].liked;
+        } else {
+          item.liked = false;
+        }
+
+        const div = document.createElement("div");
+        div.classList.add("item");
+        div.innerHTML = `
+          <img src="${item.img}" alt="${item.name}">
+          <h2>${item.name}</h2>
+          <p><strong>שנה:</strong> ${item.year}</p>
+          <p><strong>ז'אנר:</strong> ${item.genre}</p>
+          <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+          <button class="like-btn ${item.liked ? 'liked' : ''}">
+            <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+          </button>
+        `;
+        catalogDiv.appendChild(div);
+
+        const btn = div.querySelector(".like-btn");
+        const heart = btn.querySelector(".heart");
+        const count = div.querySelector(".like-count");
+
+        btn.addEventListener("click", () => {
+          item.liked = !item.liked;
+          if(item.liked){
+            item.likes++;
+            btn.classList.add("liked");
+            heart.textContent = '❤️';
+            heart.classList.add("animate");
+            createParticles(div);
+          } else {
+            item.likes--;
+            btn.classList.remove("liked");
+            heart.textContent = '🤍';
+          }
+          count.textContent = item.likes;
+          setTimeout(() => heart.classList.remove("animate"), 300);
+          storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+          localStorage.setItem("likes", JSON.stringify(storedLikes));
+        });
+      });
+    }
+
+    function createParticles(container){
+      for(let i=0;i<8;i++){
+        const particle = document.createElement("span");
+        particle.classList.add("particle");
+        const x = Math.random() * 80 - 40 + "px";
+        const y = -Math.random() * 60 - 20 + "px";
+        particle.style.setProperty("--x", x);
+        particle.style.setProperty("--y", y);
+        container.appendChild(particle);
+        setTimeout(()=> container.removeChild(particle), 600);
+      }
+    }
+
+    renderCatalog(catalog);
+
+    sortBtn.addEventListener("click", () => {
+      if (!isSorted) {
+        const sorted = [...catalog].sort((a,b) => a.name.localeCompare(b.name));
+        renderCatalog(sorted);
+        sortBtn.textContent = "החזר לסדר המקורי";
+        isSorted = true;
+      } else {
+        renderCatalog(originalOrder);
+        sortBtn.textContent = "מיין אלפביתי לפי שם";
+        isSorted = false;
+      }
+    });
+
+    searchInput.addEventListener("input", () => {
+      const query = searchInput.value.toLowerCase();
+      const filtered = catalog.filter(item => 
+        item.name.toLowerCase().includes(query) || 
+        item.genre.toLowerCase().includes(query)
+      );
+      renderCatalog(filtered);
+    });
+  </script>
+</body>
+</html>

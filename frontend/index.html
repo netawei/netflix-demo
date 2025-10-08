@@ -1,0 +1,149 @@
+<!-- Neta-Weinreb-212648141-Shani-Nahaissi-214070443 -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login</title>
+  <style>
+    :root{
+      --bg: #000;
+      --overlay: rgba(0,0,0,0.6);
+      --card: rgba(0,0,0,0.75);
+      --text: #e5e5e5;
+      --muted: #b3b3b3;
+      --primary: #e50914;
+      --focus: 2px solid #fff;
+      --radius: 12px;
+    }
+    *{ box-sizing: border-box; }
+    body{ 
+        margin:0; 
+        font-family: Arial, sans-serif; 
+        color: var(--text); 
+        background: var(--bg); 
+    }
+
+    .background-img{
+      background: url('https://plus.unsplash.com/premium_photo-1670185510638-6427989f7efa?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') center/cover no-repeat fixed;
+      min-height: 100vh;
+      position: relative;
+    }
+    .overlay{
+      position: absolute;
+      inset:0;
+      background: var(--overlay);
+    }
+    .center{
+      position: relative;
+      z-index: 1;
+      display: flex; 
+      justify-content: center; 
+      align-items: center;
+      min-height: calc(100vh - 80px);
+    }
+    .card{
+      background: var(--card);
+      padding: 32px;
+      border-radius: var(--radius);
+      width: 100%; max-width: 400px;
+    }
+    h1{ 
+        margin:0 0 16px; 
+    }
+    .field{ 
+        display: flex;
+        flex-direction: column; 
+        gap:6px; 
+        margin-bottom: 12px; 
+    }
+    .label{ 
+        font-size: 14px; 
+        color: var(--muted);
+     }
+    input{
+      padding: 12px; border:1px solid #333; border-radius:8px;
+      background:#111; color:var(--text);
+    }
+    input:focus{ outline: var(--focus); }
+    .btn-primary{
+      width:100%; 
+      padding:14px; 
+      border:none;
+      border-radius:8px; 
+      background:var(--primary); 
+      color:white;
+      font-weight: bold; 
+      cursor: pointer;
+    }
+    .row{ display:flex; justify-content: space-between; font-size:14px; margin-top:10px; color: var(--muted);}
+    .hint{ font-size:12px; color:var(--muted); margin-top:10px; }
+    .error { 
+      color: #ff6b6b; 
+      font-size: 12px; 
+      margin-top: -6px; 
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="background-img">
+    <div class="overlay"></div>
+    <main class="center">
+      <section class="card">
+        <h1>כניסה</h1>
+        <form id="loginForm" novalidate>
+          <label class="field">
+            <span class="label">אימייל</span>
+            <input type="email" id="email" required>
+            <div class="error" id="emailError"></div>
+          </label>
+          <label class="field">
+            <span class="label">סיסמה</span>
+            <input type="password" id="password" required>
+            <div class="error" id="passwordError"></div>
+          </label>
+          <button class="btn-primary" type="submit">התחברות</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const form = document.getElementById("loginForm");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const emailError = document.getElementById("emailError");
+    const passwordError = document.getElementById("passwordError");
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      let isValid = true;
+
+      const emailValue = emailInput.value.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailValue)) {
+        emailError.textContent = "אנא הזן כתובת אימייל תקינה";
+        isValid = false;
+      } else {
+        emailError.textContent = "";
+      }
+
+      const passwordValue = passwordInput.value.trim();
+      if (passwordValue.length < 6) {
+        passwordError.textContent = "הסיסמה חייבת להכיל לפחות 6 תווים";
+        isValid = false;
+      } else {
+        passwordError.textContent = "";
+      }
+
+      if (isValid) {
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userEmail", emailValue);
+        window.location.href = "main-page.html"; 
+      }
+    });
+  </script>
+</body>
+</html>
