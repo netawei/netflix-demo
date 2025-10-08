@@ -57,7 +57,7 @@ exports.loginUser = async (req, res) => {
 
 exports.logoutUser = (req, res) => {
   req.session.destroy(err => {
-    if (err) return res.status(500).send('Server error');
+    if (err) return res.status(500).send('Could not log out.');
     res.clearCookie('connect.sid');
     res.send('Logout successful');
   });
