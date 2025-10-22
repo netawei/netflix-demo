@@ -9,7 +9,7 @@ app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-const MONGO_URI = '123;
+const MONGO_URI = `mongodb://${MONGO_USER}:${encodeURIComponent(MONGO_PASS)}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}?authSource=admin`;
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('the connection to MongoDB was successful');
