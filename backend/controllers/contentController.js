@@ -35,7 +35,7 @@ exports.updateContent = async (req, res) => {
     const updated = await Content.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
