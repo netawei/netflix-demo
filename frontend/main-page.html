@@ -176,8 +176,11 @@
     <input type="text" id="searchInput" class="search-box" placeholder="חפש סרט או סדרה...">
     <br>
     <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
+    <div class="catalog" id="newestCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
+
+
 
   <script>
     const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
@@ -186,77 +189,91 @@
     } else {
       window.location.href = "profiles.html";
     }
-
+  
     document.getElementById("logoutBtn").addEventListener("click", () => {
       localStorage.removeItem("activeProfile");
       localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("userEmail")
+      localStorage.removeItem("userEmail");
       window.location.href = "index.html";
     });
-    var catalog = [];
-    fetch("http://localhost:5001/api/content")   // Your backend URL
-      .then(response => response.json())       // Convert JSON
-      .then(data => {
-        data.forEach( content =>{
-          var genres = "";
-          content.genre.forEach(name =>{
-            genres += name + " | ";
-          })
-          catalog.push({
-            id: content._id,
-            name: content.title,
-            year: content.releaseYear,
-            likes: content.likes,
-            img: content.posterUrl,
-            genre: genres,
-            updatedAt: content.updatedAt
-          })
-        }
-        )
-        renderCatalog(catalog);
-      })
-    console.log(catalog)
-    // catalog= [
-    //   { id: 1, name: "Stranger Things", year: 2016, genre: "מדע בדיוני / מתח", likes: 1200, img: "images/stranger_things.jpg" },
-    //   { id: 2, name: "The Witcher", year: 2019, genre: "פנטזיה / פעולה", likes: 950, img: "images/the_witcher.jpg" },
-    //   { id: 3, name: "Money Heist", year: 2017, genre: "פשע / דרמה", likes: 2100, img: "images/money_heist.jpg" },
-    //   { id: 4, name: "Breaking Bad", year: 2008, genre: "דרמה / פשע", likes: 3000, img: "images/breaking_bad.jpg" },
-    //   { id: 5, name: "Avatar", year: 2009, genre: "מדע בדיוני / הרפתקאות", likes: 1800, img: "images/avatar.jpg" },
-    //   { id: 6, name: "The Crown", year: 2016, genre: "דרמה / היסטוריה", likes: 700, img: "images/the_crown.jpg" },
-    //   { id: 7, name: "Inception", year: 2010, genre: "מדע בדיוני / פעולה", likes: 2500, img: "images/inception.jpg" }
-    // ];
-
-    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+  
     const catalogDiv = document.getElementById("catalog");
-    const sortBtn = document.getElementById("sortBtn");
+    const newestDiv = document.getElementById("newestCatalog");
     const searchInput = document.getElementById("searchInput");
-
-    const originalOrder = [...catalog];
+    const sortBtn = document.getElementById("sortBtn");
+  
+    let catalog = [];
+    let groupedCatalog = {};
     let isSorted = false;
+    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+  
+    fetch("http://localhost:5001/api/content")
+      .then(res => res.json())
+      .then(data => {
+        catalog = data.map(content => {
+          const timeMs = new Date(content.updatedAt).getTime();
+        return {
+          id: content._id,
+          name: content.title,
+          year: content.releaseYear,
+          likes: content.likes,
+          img: content.posterUrl,
+          genre: content.genre,
+          updatedAt:  isNaN(timeMs) ? 0 : timeMs // if updatedAt doesnt exists, treat as very old content
+        };
+      });
 
-    function renderCatalog(items) {
-      catalogDiv.innerHTML = "";
-      items.forEach(item => {
-        if (storedLikes[item.id] !== undefined) {
+        const newest = [...catalog]
+    .sort((a, b) => {
+          const dateA = new Date(a.updatedAt);
+          const dateB = new Date(b.updatedAt);
+          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
+          return dateB - dateA;
+      })
+      .slice(0, 10);
+        renderNewest(newest);
+
+        groupByGenre();
+        renderGroupedCatalog();
+      })
+      .catch(err => console.error("Fetch error:", err));
+  
+    function renderNewest(list) {
+      newestDiv.innerHTML = "";
+      const title = document.createElement("h2");
+      title.textContent = "10 הסדרות החדשות ביותר";
+      title.style.textAlign = "center";
+      title.style.marginTop = "40px";
+      title.style.color = "#e50914";
+      title.style.fontSize = "28px";
+      title.style.fontWeight = "bold";
+      
+      newestDiv.appendChild(title);
+      const grid = document.createElement("div");
+      grid.classList.add("catalog-grid");
+      grid.style.display = "flex";
+      grid.style.flexWrap = "wrap";
+      grid.style.gap = "20px";
+      grid.style.justifyContent = "flex-start";
+      
+      list.forEach(item => {
+        if (storedLikes[item.id]) {
           item.likes = storedLikes[item.id].likes;
           item.liked = storedLikes[item.id].liked;
-        } else {
-          item.liked = false;
-        }
+        } else item.liked = false;
 
         const div = document.createElement("div");
         div.classList.add("item");
         div.innerHTML = `
           <img src="${item.img}" alt="${item.name}">
-          <h2>${item.name}</h2>
+          <h3>${item.name}</h3>
           <p><strong>שנה:</strong> ${item.year}</p>
-          <p><strong>ז'אנר:</strong> ${item.genre}</p>
           <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
             <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
           </button>
         `;
-        catalogDiv.appendChild(div);
+        grid.appendChild(div);
 
         const btn = div.querySelector(".like-btn");
         const heart = btn.querySelector(".heart");
@@ -264,27 +281,173 @@
 
         btn.addEventListener("click", () => {
           item.liked = !item.liked;
-          if(item.liked){
-            item.likes++;
-            btn.classList.add("liked");
-            heart.textContent = '❤️';
-            heart.classList.add("animate");
-            createParticles(div);
-          } else {
-            item.likes--;
-            btn.classList.remove("liked");
-            heart.textContent = '🤍';
-          }
+          item.likes += item.liked ? 1 : -1;
+          btn.classList.toggle("liked", item.liked);
+          heart.textContent = item.liked ? "❤️" : "🤍";
+          if (item.liked) createParticles(div);
           count.textContent = item.likes;
-          setTimeout(() => heart.classList.remove("animate"), 300);
           storedLikes[item.id] = { likes: item.likes, liked: item.liked };
           localStorage.setItem("likes", JSON.stringify(storedLikes));
         });
       });
+      newestDiv.appendChild(grid);
+    }
+    function groupByGenre() {
+      groupedCatalog = {};
+      catalog.forEach(item => {
+        if (!item.genre || item.genre.length === 0) {
+          item.genre = ["NoIdeaGenre"]; 
+        }
+        item.genre.forEach(g => {
+          const genre = g.trim();
+          if (!groupedCatalog[genre]) groupedCatalog[genre] = [];
+          groupedCatalog[genre].push(item);
+        });
+      });
+    }
+  
+    function renderGroupedCatalog() {
+      catalogDiv.innerHTML = "";
+      Object.keys(groupedCatalog).forEach(genre => {
+        const section = document.createElement("div");
+        section.classList.add("genre-section");
+        const title = document.createElement("h2");
+        title.textContent = genre;
+        title.style.textAlign = "right";
+        title.style.marginTop = "40px";
+        title.style.color = "#e50914";
+  
+        const grid = document.createElement("div");
+        grid.classList.add("catalog-grid");
+        grid.style.display = "flex";
+        grid.style.flexWrap = "wrap";
+        grid.style.gap = "20px";
+        grid.style.justifyContent = "flex-start";
+  
+        groupedCatalog[genre].forEach(item => {
+          if (storedLikes[item.id] !== undefined) {
+            item.likes = storedLikes[item.id].likes;
+            item.liked = storedLikes[item.id].liked;
+          } else {
+            item.liked = false;
+          }
+  
+          const div = document.createElement("div");
+          div.classList.add("item");
+          div.innerHTML = `
+            <img src="${item.img}" alt="${item.name}">
+            <h3>${item.name}</h3>
+            <p><strong>שנה:</strong> ${item.year}</p>
+            <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+            <button class="like-btn ${item.liked ? 'liked' : ''}">
+              <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+            </button>
+          `;
+  
+          grid.appendChild(div);
+  
+          const btn = div.querySelector(".like-btn");
+          const heart = btn.querySelector(".heart");
+          const count = div.querySelector(".like-count");
+  
+          btn.addEventListener("click", () => {
+            item.liked = !item.liked;
+            if (item.liked) {
+              item.likes++;
+              btn.classList.add("liked");
+              heart.textContent = "❤️";
+              heart.classList.add("animate");
+              createParticles(div);
+            } else {
+              item.likes--;
+              btn.classList.remove("liked");
+              heart.textContent = "🤍";
+            }
+            count.textContent = item.likes;
+            setTimeout(() => heart.classList.remove("animate"), 300);
+            storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+            localStorage.setItem("likes", JSON.stringify(storedLikes));
+          });
+        });
+  
+        section.appendChild(title);
+        section.appendChild(grid);
+        catalogDiv.appendChild(section);
+      });
+    }
+    
+    function renderFlatCatalog(list) {
+  catalogDiv.innerHTML = ""; // clear everything
+  newestDiv.innerHTML = ""; // clear everything
+
+  const title = document.createElement("h2");
+  title.textContent = `Search Results(${list.length})`;
+  title.style.textAlign = "center";
+  title.style.marginTop = "40px";
+  title.style.color = "#e50914";
+  title.style.fontSize = "28px";
+  title.style.fontWeight = "bold";
+
+  catalogDiv.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.classList.add("catalog-grid");
+  grid.style.display = "flex";
+  grid.style.flexWrap = "wrap";
+  grid.style.gap = "20px";
+  grid.style.justifyContent = "flex-start";
+
+  list.forEach(item => {
+    if (storedLikes[item.id] !== undefined) {
+      item.likes = storedLikes[item.id].likes;
+      item.liked = storedLikes[item.id].liked;
+    } else {
+      item.liked = false;
     }
 
-    function createParticles(container){
-      for(let i=0;i<8;i++){
+    const div = document.createElement("div");
+    div.classList.add("item");
+    div.innerHTML = `
+      <img src="${item.img}" alt="${item.name}">
+      <h3>${item.name}</h3>
+      <p><strong>שנה:</strong> ${item.year}</p>
+      <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+      <button class="like-btn ${item.liked ? 'liked' : ''}">
+        <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+      </button>
+    `;
+
+    grid.appendChild(div);
+
+    const btn = div.querySelector(".like-btn");
+    const heart = btn.querySelector(".heart");
+    const count = div.querySelector(".like-count");
+
+    btn.addEventListener("click", () => {
+      item.liked = !item.liked;
+      if (item.liked) {
+        item.likes++;
+        btn.classList.add("liked");
+        heart.textContent = "❤️";
+        heart.classList.add("animate");
+        createParticles(div);
+      } else {
+        item.likes--;
+        btn.classList.remove("liked");
+        heart.textContent = "🤍";
+      }
+      count.textContent = item.likes;
+      setTimeout(() => heart.classList.remove("animate"), 300);
+      storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+      localStorage.setItem("likes", JSON.stringify(storedLikes));
+    });
+  });
+
+  catalogDiv.appendChild(grid);
+}
+
+    function createParticles(container) {
+      for (let i = 0; i < 8; i++) {
         const particle = document.createElement("span");
         particle.classList.add("particle");
         const x = Math.random() * 80 - 40 + "px";
@@ -292,33 +455,56 @@
         particle.style.setProperty("--x", x);
         particle.style.setProperty("--y", y);
         container.appendChild(particle);
-        setTimeout(()=> container.removeChild(particle), 600);
+        setTimeout(() => container.removeChild(particle), 600);
       }
     }
-
-    renderCatalog(catalog);
-
+  
+    // Sort by name
     sortBtn.addEventListener("click", () => {
       if (!isSorted) {
-        const sorted = [...catalog].sort((a,b) => a.name.localeCompare(b.name));
-        renderCatalog(sorted);
-        sortBtn.textContent = "החזר לסדר המקורי";
+        catalog.sort((a, b) => a.name.localeCompare(b.name));
         isSorted = true;
+        sortBtn.textContent = "החזר לסדר המקורי";
       } else {
-        renderCatalog(originalOrder);
-        sortBtn.textContent = "מיין אלפביתי לפי שם";
+        catalog.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
         isSorted = false;
+        sortBtn.textContent = "מיין אלפביתי לפי שם";
       }
+      groupByGenre();
+      renderGroupedCatalog();
     });
-
+  
+    // Search filter
     searchInput.addEventListener("input", () => {
-      const query = searchInput.value.toLowerCase();
-      const filtered = catalog.filter(item => 
-        item.name.toLowerCase().includes(query) || 
-        item.genre.toLowerCase().includes(query)
-      );
-      renderCatalog(filtered);
-    });
-  </script>
+  const query = searchInput.value.toLowerCase();
+
+  if (!query) {
+    // If search is empty, go back to grouped view
+    const newest = [...catalog]
+    .sort((a, b) => {
+          const dateA = new Date(a.updatedAt);
+          const dateB = new Date(b.updatedAt);
+          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
+          return dateB - dateA;
+      })
+      .slice(0, 10);
+    renderNewest(newest);
+    groupByGenre();
+    renderGroupedCatalog();
+    return;
+  }
+
+  // Filter catalog
+  const filtered = catalog.filter(
+    item =>
+      item.name.toLowerCase().includes(query) ||
+      item.genre.some(g => g.toLowerCase().includes(query))
+  );
+
+  // Render flat list
+  renderFlatCatalog(filtered);
+});
+
+  </script>  
 </body>
 </html>
