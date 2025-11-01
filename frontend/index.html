@@ -139,9 +139,45 @@
       }
 
       if (isValid) {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userEmail", emailValue);
-        window.location.href = "main-page.html"; 
+        // Call backend API for login
+        fetch('http://localhost:5001/api/users/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Important for sessions
+          body: JSON.stringify({
+            email: emailValue,
+            password: passwordValue
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.userData) {
+            // Store user data in localStorage
+            localStorage.setItem("isLoggedIn", "true");
+            localStorage.setItem("userEmail", emailValue);
+            localStorage.setItem("userId", data.userData.id);
+            localStorage.setItem("userName", data.userData.name);
+            
+            // Store profiles if available
+            if (data.userData.profiles) {
+              localStorage.setItem("userProfiles", JSON.stringify(data.userData.profiles.map((p, idx) => ({
+                id: idx + 1,
+                name: p.name,
+                img: p.avatar
+              }))));
+            }
+            
+            window.location.href = "profiles.html";
+          } else {
+            passwordError.textContent = data.message || "שגיאה בהתחברות";
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          passwordError.textContent = "שגיאה בהתחברות. נסה שוב.";
+        });
       }
     });
   </script>

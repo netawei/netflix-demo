@@ -188,9 +188,19 @@
     }
 
     document.getElementById("logoutBtn").addEventListener("click", () => {
+      // Logout from backend
+      fetch('http://localhost:5001/api/users/logout', {
+        method: 'GET',
+        credentials: 'include'
+      }).catch(err => console.error('Logout error:', err));
+      
+      // Clear all user data from localStorage
       localStorage.removeItem("activeProfile");
       localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("userEmail")
+      localStorage.removeItem("userEmail");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userName");
+      localStorage.removeItem("userProfiles");
       window.location.href = "index.html";
     });
 
@@ -204,7 +214,11 @@
       { id: 7, name: "Inception", year: 2010, genre: "מדע בדיוני / פעולה", likes: 2500, img: "images/inception.jpg" }
     ];
 
-    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+    const API_BASE_URL = 'http://localhost:5001/api/users';
+    const userId = activeProfile?.userId || localStorage.getItem("userId");
+    const profileName = activeProfile?.name;
+    let likedContentIds = []; // Array of content IDs that are liked by this profile
+    
     const catalogDiv = document.getElementById("catalog");
     const sortBtn = document.getElementById("sortBtn");
     const searchInput = document.getElementById("searchInput");
@@ -212,15 +226,47 @@
     const originalOrder = [...catalog];
     let isSorted = false;
 
+    // Load liked content from backend
+    async function loadLikedContent() {
+      if (!userId || !profileName) {
+        console.warn('No userId or profileName, using localStorage fallback');
+        const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
+        return Object.keys(storedLikes).filter(key => storedLikes[key].liked).map(Number);
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profiles/liked-content`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId: userId,
+            profileName: profileName
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          likedContentIds = data.likedContent || [];
+          return likedContentIds;
+        } else {
+          throw new Error('Failed to load liked content');
+        }
+      } catch (error) {
+        console.error('Error loading liked content:', error);
+        // Fallback to localStorage
+        const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
+        return Object.keys(storedLikes).filter(key => storedLikes[key].liked).map(Number);
+      }
+    }
+
     function renderCatalog(items) {
       catalogDiv.innerHTML = "";
       items.forEach(item => {
-        if (storedLikes[item.id] !== undefined) {
-          item.likes = storedLikes[item.id].likes;
-          item.liked = storedLikes[item.id].liked;
-        } else {
-          item.liked = false;
-        }
+        // Check if this content is liked by the current profile
+        item.liked = likedContentIds.includes(item.id);
 
         const div = document.createElement("div");
         div.classList.add("item");
@@ -240,23 +286,84 @@
         const heart = btn.querySelector(".heart");
         const count = div.querySelector(".like-count");
 
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
+          const wasLiked = item.liked;
           item.liked = !item.liked;
+          
+          // Update UI immediately for better UX
           if(item.liked){
             item.likes++;
             btn.classList.add("liked");
             heart.textContent = '❤️';
             heart.classList.add("animate");
             createParticles(div);
+            likedContentIds.push(item.id);
           } else {
             item.likes--;
             btn.classList.remove("liked");
             heart.textContent = '🤍';
+            likedContentIds = likedContentIds.filter(id => id !== item.id);
           }
           count.textContent = item.likes;
           setTimeout(() => heart.classList.remove("animate"), 300);
-          storedLikes[item.id] = { likes: item.likes, liked: item.liked };
-          localStorage.setItem("likes", JSON.stringify(storedLikes));
+
+          // Save to backend
+          if (userId && profileName) {
+            try {
+              const response = await fetch(`${API_BASE_URL}/profiles/like`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  userId: userId,
+                  profileName: profileName,
+                  contentId: item.id
+                })
+              });
+
+              if (!response.ok) {
+                // Revert if save failed
+                item.liked = wasLiked;
+                if(wasLiked) {
+                  item.likes--;
+                  btn.classList.remove("liked");
+                  heart.textContent = '🤍';
+                  likedContentIds = likedContentIds.filter(id => id !== item.id);
+                } else {
+                  item.likes++;
+                  btn.classList.add("liked");
+                  heart.textContent = '❤️';
+                  likedContentIds.push(item.id);
+                }
+                count.textContent = item.likes;
+                alert("שגיאה בשמירת הלייק. נסה שוב.");
+              }
+            } catch (error) {
+              console.error('Error saving like:', error);
+              // Revert on error
+              item.liked = wasLiked;
+              if(wasLiked) {
+                item.likes--;
+                btn.classList.remove("liked");
+                heart.textContent = '🤍';
+                likedContentIds = likedContentIds.filter(id => id !== item.id);
+              } else {
+                item.likes++;
+                btn.classList.add("liked");
+                heart.textContent = '❤️';
+                likedContentIds.push(item.id);
+              }
+              count.textContent = item.likes;
+              alert("שגיאה בשמירת הלייק. נסה שוב.");
+            }
+          } else {
+            // Fallback to localStorage if no userId/profileName
+            const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
+            storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+            localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
+          }
         });
       });
     }
@@ -274,7 +381,10 @@
       }
     }
 
-    renderCatalog(catalog);
+    // Load liked content and then render
+    loadLikedContent().then(() => {
+      renderCatalog(catalog);
+    });
 
     sortBtn.addEventListener("click", () => {
       if (!isSorted) {

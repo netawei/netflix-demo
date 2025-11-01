@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Content = require('../models/Content');
 const bcrypt = require('bcrypt');
 
 
@@ -41,16 +42,23 @@ exports.loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).send('Invalid email or password');
 
-    res.json({message : 'Login successful',
-              userData : {
-              id: user._id,
-              name: user.name, 
-              email: user.email,
-              isAdmin: user.isAdmin,
-              profiles: user.profiles},
-            });
+    req.session.user = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      isAdmin: user.isAdmin
+    };
 
-    res.send();
+    res.json({
+      message: 'Login successful',
+      userData: {
+        id: user._id,
+        name: user.name, 
+        email: user.email,
+        isAdmin: user.isAdmin,
+        profiles: user.profiles || []
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -65,8 +73,346 @@ exports.logoutUser = (req, res) => {
   });
 };
 
-//todo: check amount of profiles, if there are 5 profiles -> disable adding option
-// list len is bigger than 5
+// Get user profiles
+exports.getUserProfiles = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.body.userId;
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      profiles: user.profiles || [],
+      canAddProfile: (user.profiles || []).length < 5
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Add a new profile to user
+exports.addProfile = async (req, res) => {
+  try {
+    const { userId, name, avatar } = req.body;
+
+    if (!userId || !name) {
+      return res.status(400).json({ message: 'User ID and profile name are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if user already has 5 profiles
+    const currentProfiles = user.profiles || [];
+    if (currentProfiles.length >= 5) {
+      return res.status(400).json({ 
+        message: 'Maximum of 5 profiles allowed',
+        canAddProfile: false
+      });
+    }
+
+    // Add new profile
+    const newProfile = {
+      name: name.trim(),
+      avatar: avatar || "https://picsum.photos/seed/" + Date.now() + "/200",
+      likedContent: [],
+      preferences: {
+        favoriteGenres: []
+      }
+    };
+
+    user.profiles.push(newProfile);
+    await user.save();
+
+    res.json({
+      message: 'Profile added successfully',
+      profile: newProfile,
+      profiles: user.profiles,
+      canAddProfile: user.profiles.length < 5
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Toggle like for content in user profile
+exports.toggleContentLike = async (req, res) => {
+  try {
+    const { userId, profileName, contentId, contentGenres } = req.body;
+
+    if (!userId || !profileName || contentId === undefined) {
+      return res.status(400).json({ message: 'User ID, profile name, and content ID are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profile = user.profiles.find(p => p.name === profileName);
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    // Initialize likedContent if it doesn't exist
+    if (!profile.likedContent) {
+      profile.likedContent = [];
+    }
+
+    const contentIdNum = Number(contentId);
+    const likedIndex = profile.likedContent.indexOf(contentIdNum);
+
+    if (likedIndex > -1) {
+      // Remove like
+      profile.likedContent.splice(likedIndex, 1);
+    } else {
+      // Add like
+      profile.likedContent.push(contentIdNum);
+      
+      // Update favoriteGenres based on liked content
+      // Initialize favoriteGenres if it doesn't exist
+      if (!profile.preferences) {
+        profile.preferences = { favoriteGenres: [] };
+      }
+      if (!profile.preferences.favoriteGenres) {
+        profile.preferences.favoriteGenres = [];
+      }
+      
+      // Update genres if provided from frontend or find in database
+      if (contentGenres && Array.isArray(contentGenres)) {
+        // Add genres from frontend
+        contentGenres.forEach(genre => {
+          if (genre && !profile.preferences.favoriteGenres.includes(genre)) {
+            profile.preferences.favoriteGenres.push(genre);
+          }
+        });
+      } else {
+        // Try to find content in database to get genres
+        try {
+          // Try multiple ways to find content
+          let content = await Content.findById(contentIdNum);
+          
+          // If not found by _id, try to find by searching (in case contentId is a frontend ID)
+          if (!content) {
+            // Could also search by other fields if needed
+            content = await Content.findOne({ _id: contentIdNum });
+          }
+          
+          if (content && content.genre && Array.isArray(content.genre)) {
+            content.genre.forEach(genre => {
+              if (genre && !profile.preferences.favoriteGenres.includes(genre)) {
+                profile.preferences.favoriteGenres.push(genre);
+              }
+            });
+          }
+        } catch (err) {
+          console.log('Content not found for genre update');
+        }
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Like toggled successfully',
+      liked: likedIndex === -1,
+      likedContent: profile.likedContent,
+      favoriteGenres: profile.preferences?.favoriteGenres || []
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get liked content for a profile
+exports.getProfileLikedContent = async (req, res) => {
+  try {
+    const { userId, profileName } = req.body;
+    const userIdParam = req.params.userId;
+    
+    const userIdToUse = userId || userIdParam;
+    
+    if (!userIdToUse || !profileName) {
+      return res.status(400).json({ message: 'User ID and profile name are required' });
+    }
+
+    const user = await User.findById(userIdToUse);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profile = user.profiles.find(p => p.name === profileName);
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    res.json({
+      likedContent: profile.likedContent || [],
+      profileName: profile.name
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get content recommendations based on favoriteGenres and likedContent
+exports.getRecommendations = async (req, res) => {
+  try {
+    const { userId, profileName, limit = 10 } = req.body;
+    
+    if (!userId || !profileName) {
+      return res.status(400).json({ message: 'User ID and profile name are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profile = user.profiles.find(p => p.name === profileName);
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    const favoriteGenres = profile.preferences?.favoriteGenres || [];
+    const likedContentIds = profile.likedContent || [];
+    
+    // If no favorite genres and no liked content, return popular content
+    if (favoriteGenres.length === 0 && likedContentIds.length === 0) {
+      const allContent = await Content.find()
+        .limit(Number(limit))
+        .sort({ rating: -1 }); // Sort by rating (highest first)
+      
+      return res.json({
+        recommendations: allContent,
+        reason: 'popular',
+        message: 'Recommendations based on popular content'
+      });
+    }
+
+    // Build query to find content matching favorite genres
+    const genreQuery = favoriteGenres.length > 0 
+      ? { genre: { $in: favoriteGenres } }
+      : {};
+    
+    // Get all content that matches genres
+    let recommendations = await Content.find(genreQuery);
+    
+    // Also consider genres from liked content
+    if (likedContentIds.length > 0) {
+      try {
+        // Try to find liked content in database to get their genres
+        const likedContent = await Content.find({
+          _id: { $in: likedContentIds.map(id => {
+            try {
+              return id; // Try as ObjectId
+            } catch {
+              return null;
+            }
+          }).filter(id => id !== null) }
+        });
+        
+        // Extract genres from liked content
+        const likedGenres = [];
+        likedContent.forEach(content => {
+          if (content.genre && Array.isArray(content.genre)) {
+            content.genre.forEach(genre => {
+              if (!likedGenres.includes(genre)) {
+                likedGenres.push(genre);
+              }
+            });
+          }
+        });
+        
+        // Add content that matches genres from liked content
+        if (likedGenres.length > 0) {
+          const additionalContent = await Content.find({
+            genre: { $in: likedGenres },
+            _id: { $nin: recommendations.map(c => c._id) } // Don't duplicate
+          });
+          recommendations = recommendations.concat(additionalContent);
+        }
+      } catch (err) {
+        console.log('Error finding liked content:', err);
+        // Continue with genre-based recommendations
+      }
+    }
+    
+    // Remove content that user already liked
+    recommendations = recommendations.filter(content => {
+      // Filter out content that matches likedContentIds
+      // Convert both to strings for comparison
+      const contentIdStr = content._id.toString();
+      return !likedContentIds.some(likedId => {
+        const likedIdStr = String(likedId);
+        return contentIdStr === likedIdStr || content._id.toString() === likedIdStr;
+      });
+    });
+    
+    // Remove duplicates
+    const uniqueRecommendations = [];
+    const seenIds = new Set();
+    recommendations.forEach(content => {
+      const id = content._id.toString();
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        uniqueRecommendations.push(content);
+      }
+    });
+    
+    // Score and sort recommendations
+    // Content that matches more favorite genres gets higher score
+    const scoredRecommendations = uniqueRecommendations.map(content => {
+      let score = 0;
+      
+      // Score based on matching favorite genres
+      if (content.genre && Array.isArray(content.genre)) {
+        const matchingGenres = content.genre.filter(g => favoriteGenres.includes(g));
+        score += matchingGenres.length * 10; // 10 points per matching genre
+      }
+      
+      // Bonus points for higher rating
+      if (content.rating) {
+        score += content.rating * 2;
+      }
+      
+      return { content, score };
+    });
+    
+    // Sort by score (highest first)
+    scoredRecommendations.sort((a, b) => b.score - a.score);
+    
+    // Limit results
+    const finalRecommendations = scoredRecommendations
+      .slice(0, Number(limit))
+      .map(item => item.content);
+    
+    res.json({
+      recommendations: finalRecommendations,
+      count: finalRecommendations.length,
+      basedOn: {
+        favoriteGenres: favoriteGenres,
+        likedContentCount: likedContentIds.length
+      },
+      message: 'Recommendations based on your preferences and liked content'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 exports.updateUser = async (req, res) => {
   try {
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });

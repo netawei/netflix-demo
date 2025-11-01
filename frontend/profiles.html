@@ -22,19 +22,24 @@
       font-size: 35px;
     }
     .avatar-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: center;
+      align-items: flex-start;
       gap: 30px;
       width: 100%;
-      max-width: 700px;
+      max-width: 100%;
       margin-bottom: 30px;
       list-style: none;
       padding: 0;
+      overflow-x: auto;
     }
     .avatar {
       text-align: center;
       color: #aaa;
       cursor: pointer;
+      flex-shrink: 0;
     }
     .avatar img {
       width: 150px;
@@ -66,6 +71,36 @@
     .btn-outline:hover {
       background: #222;
     }
+    .avatar.add-profile {
+      flex-shrink: 0;
+      width: 150px;
+    }
+    .avatar.add-profile .add-button-content {
+      width: 150px;
+      height: 150px;
+      border: 2px dashed #555;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.5s, background 0.5s;
+    }
+    .avatar.add-profile:hover .add-button-content {
+      border-color: #888;
+      background: #111;
+    }
+    .add-icon {
+      font-size: 60px;
+      color: #555;
+      line-height: 1;
+    }
+    .add-profile-text {
+      margin-top: 10px;
+      color: #888;
+      font-weight: bold;
+      font-size: 17px;
+    }
   </style>
 </head>
 <body>
@@ -76,32 +111,160 @@
   </main>
 
   <script>
-    // מערך פרופילים
-    const profiles = [
-      { id: 1, name: "נטע", img: "https://images.unsplash.com/photo-1517191434949-5e90cd67d2b6?w=900" },
-      { id: 2, name: "אורח", img: "https://picsum.photos/seed/2/200" },
-      { id: 3, name: "ילדים", img: "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=900" },
-      { id: 4, name: "שני", img: "https://images.unsplash.com/photo-1665333354010-050f08f35907?w=900" }
-    ];
-
     const profilesContainer = document.getElementById("profiles");
+    const API_BASE_URL = 'http://localhost:5001/api/users';
+    
+    let currentProfiles = [];
+    let canAddProfile = true;
 
-    // יצירת פרופילים בעמוד
-    profiles.forEach(profile => {
-      const li = document.createElement("li");
-      li.classList.add("avatar");
-      li.innerHTML = `
-        <img src="${profile.img}" alt="${profile.name}">
-        <p>${profile.name}</p>
-      `;
-      li.addEventListener("click", () => {
-        // שמירת הפרופיל ב-localStorage
-        localStorage.setItem("activeProfile", JSON.stringify(profile));
-        // מעבר לעמוד הראשי
-        window.location.href = "main-page.html";
+    // Check if user is logged in
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      alert("אנא התחבר תחילה");
+      window.location.href = "index.html";
+    }
+
+    // טעינת פרופילים מהשרת
+    async function loadProfiles() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to load profiles');
+        }
+        
+        const data = await response.json();
+        currentProfiles = data.profiles || [];
+        canAddProfile = data.canAddProfile !== false;
+        
+        // Update localStorage for compatibility
+        const profilesForLocalStorage = currentProfiles.map((p, idx) => ({
+          id: idx + 1,
+          name: p.name,
+          img: p.avatar || "https://picsum.photos/seed/" + (idx + 1) + "/200"
+        }));
+        localStorage.setItem("userProfiles", JSON.stringify(profilesForLocalStorage));
+        
+        return currentProfiles;
+      } catch (error) {
+        console.error('Error loading profiles:', error);
+        // Fallback to localStorage if API fails
+        const storedProfiles = localStorage.getItem("userProfiles");
+        if (storedProfiles) {
+          currentProfiles = JSON.parse(storedProfiles);
+          canAddProfile = currentProfiles.length < 5;
+          return currentProfiles;
+        }
+        return [];
+      }
+    }
+
+    // יצירת פרופיל חדש
+    async function createNewProfile() {
+      const profileName = prompt("הזן שם פרופיל חדש:");
+      if (!profileName || profileName.trim() === "") {
+        return;
+      }
+
+      if (!canAddProfile) {
+        alert("לא ניתן להוסיף יותר מ-5 פרופילים");
+        return;
+      }
+
+      const defaultAvatars = [
+        "https://images.unsplash.com/photo-1517191434949-5e90cd67d2b6?w=900",
+        "https://picsum.photos/seed/2/200",
+        "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=900",
+        "https://images.unsplash.com/photo-1665333354010-050f08f35907?w=900",
+        "https://picsum.photos/seed/" + Date.now() + "/200"
+      ];
+      const randomAvatar = defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profiles/add`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId: userId,
+            name: profileName.trim(),
+            avatar: randomAvatar
+          })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          alert(data.message || "שגיאה ביצירת פרופיל");
+          return;
+        }
+
+        // Reload profiles after successful creation
+        await renderProfiles();
+      } catch (error) {
+        console.error('Error creating profile:', error);
+        alert("שגיאה ביצירת פרופיל. נסה שוב.");
+      }
+    }
+
+    // הצגת פרופילים בעמוד
+    async function renderProfiles() {
+      await loadProfiles();
+      profilesContainer.innerHTML = "";
+
+      // Convert backend profiles to frontend format
+      const displayProfiles = currentProfiles.map((p, idx) => ({
+        id: idx + 1,
+        name: p.name,
+        img: p.avatar || "https://picsum.photos/seed/" + (idx + 1) + "/200",
+        originalProfile: p // Keep original for reference
+      }));
+
+      // יצירת פרופילים קיימים
+      displayProfiles.forEach(profile => {
+        const li = document.createElement("li");
+        li.classList.add("avatar");
+        li.innerHTML = `
+          <img src="${profile.img}" alt="${profile.name}">
+          <p>${profile.name}</p>
+        `;
+        li.addEventListener("click", () => {
+          // שמירת הפרופיל ב-localStorage
+          localStorage.setItem("activeProfile", JSON.stringify({
+            id: profile.id,
+            name: profile.name,
+            img: profile.img,
+            userId: userId,
+            originalProfile: profile.originalProfile
+          }));
+          // מעבר לעמוד הראשי
+          window.location.href = "main-page.html";
+        });
+        profilesContainer.appendChild(li);
       });
-      profilesContainer.appendChild(li);
-    });
+
+      // הוספת כפתור יצירת פרופיל חדש רק אם יש פחות מ-5 פרופילים
+      if (canAddProfile && displayProfiles.length < 5) {
+        const addLi = document.createElement("li");
+        addLi.classList.add("avatar", "add-profile");
+        addLi.innerHTML = `
+          <div class="add-button-content">
+            <div class="add-icon">+</div>
+            <p class="add-profile-text">פרופיל חדש</p>
+          </div>
+        `;
+        addLi.addEventListener("click", createNewProfile);
+        profilesContainer.appendChild(addLi);
+      }
+    }
+
+    // טעינת הפרופילים בהתחלה
+    renderProfiles();
   </script>
 </body>
 </html>
