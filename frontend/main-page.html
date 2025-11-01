@@ -193,16 +193,38 @@
       localStorage.removeItem("userEmail")
       window.location.href = "index.html";
     });
-
-    const catalog = [
-      { id: 1, name: "Stranger Things", year: 2016, genre: "מדע בדיוני / מתח", likes: 1200, img: "images/stranger_things.jpg" },
-      { id: 2, name: "The Witcher", year: 2019, genre: "פנטזיה / פעולה", likes: 950, img: "images/the_witcher.jpg" },
-      { id: 3, name: "Money Heist", year: 2017, genre: "פשע / דרמה", likes: 2100, img: "images/money_heist.jpg" },
-      { id: 4, name: "Breaking Bad", year: 2008, genre: "דרמה / פשע", likes: 3000, img: "images/breaking_bad.jpg" },
-      { id: 5, name: "Avatar", year: 2009, genre: "מדע בדיוני / הרפתקאות", likes: 1800, img: "images/avatar.jpg" },
-      { id: 6, name: "The Crown", year: 2016, genre: "דרמה / היסטוריה", likes: 700, img: "images/the_crown.jpg" },
-      { id: 7, name: "Inception", year: 2010, genre: "מדע בדיוני / פעולה", likes: 2500, img: "images/inception.jpg" }
-    ];
+    var catalog = [];
+    fetch("http://localhost:5001/api/content")   // Your backend URL
+      .then(response => response.json())       // Convert JSON
+      .then(data => {
+        data.forEach( content =>{
+          var genres = "";
+          content.genre.forEach(name =>{
+            genres += name + " | ";
+          })
+          catalog.push({
+            id: content._id,
+            name: content.title,
+            year: content.releaseYear,
+            likes: content.likes,
+            img: content.posterUrl,
+            genre: genres,
+            updatedAt: content.updatedAt
+          })
+        }
+        )
+        renderCatalog(catalog);
+      })
+    console.log(catalog)
+    // catalog= [
+    //   { id: 1, name: "Stranger Things", year: 2016, genre: "מדע בדיוני / מתח", likes: 1200, img: "images/stranger_things.jpg" },
+    //   { id: 2, name: "The Witcher", year: 2019, genre: "פנטזיה / פעולה", likes: 950, img: "images/the_witcher.jpg" },
+    //   { id: 3, name: "Money Heist", year: 2017, genre: "פשע / דרמה", likes: 2100, img: "images/money_heist.jpg" },
+    //   { id: 4, name: "Breaking Bad", year: 2008, genre: "דרמה / פשע", likes: 3000, img: "images/breaking_bad.jpg" },
+    //   { id: 5, name: "Avatar", year: 2009, genre: "מדע בדיוני / הרפתקאות", likes: 1800, img: "images/avatar.jpg" },
+    //   { id: 6, name: "The Crown", year: 2016, genre: "דרמה / היסטוריה", likes: 700, img: "images/the_crown.jpg" },
+    //   { id: 7, name: "Inception", year: 2010, genre: "מדע בדיוני / פעולה", likes: 2500, img: "images/inception.jpg" }
+    // ];
 
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const catalogDiv = document.getElementById("catalog");
