@@ -299,20 +299,26 @@ function renderGenreButtons() {
   });
 }
 
+let filteredResults = [];
+let itemsPerPage = 50;
+let renderedCount = 0;
+let isLoadingMore = false;
+
+
 function applyFilters() {
   const query = searchInput.value.toLowerCase().trim();
 
   // Start from the full catalog
   let filtered = [...catalog];
 
-  // 1️⃣ Apply genre filter (if any selected)
+  // Apply genre filter (if any selected)
   if (selectedGenres.size > 0) {
     filtered = filtered.filter(item =>
       item.genre.some(g => selectedGenres.has(g))
     );
   }
 
-  // 2️⃣ Apply search filter (if search not empty)
+  // Apply search filter (if search not empty)
   if (query) {
     filtered = filtered.filter(item =>
       item.name.toLowerCase().includes(query) ||
@@ -320,8 +326,14 @@ function applyFilters() {
     );
   }
 
-  // 3️⃣ Render the result
-  if (filtered.length === catalog.length && !query && selectedGenres.size === 0) {
+  // Save and render the result
+  filteredResults = filtered;
+  renderedCount = 0;
+  catalogDiv.innerHTML = "";
+  newestDiv.innerHTML = "";
+  window.removeEventListener("scroll", handleScroll);
+
+  if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0) {
     // Default full view (no filters)
     const newest = [...catalog]
       .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
@@ -329,10 +341,117 @@ function applyFilters() {
     renderNewest(newest);
     groupByGenre();
     renderGroupedCatalog();
-  } else {
-    renderFlatCatalog(filtered);
+    filteredResults = [];
+    renderedCount = 0;
+    return;
+  }
+
+  // If results fit in one page — render them all and don't attach scroll
+  if (filteredResults.length <= itemsPerPage) {
+    renderFlatCatalog(filteredResults);
+    // ensure there's no scroll listener
+    return;
+  }
+
+  // Otherwise render first batch and attach scroll listener
+  renderNextBatch();
+  window.addEventListener("scroll", handleScroll);
+}
+
+
+let scrollTimeout = null;
+
+function handleScroll() {
+  if (isLoadingMore) return;
+
+  const scrollPosition = window.innerHeight + window.scrollY;
+  const threshold = document.body.offsetHeight - 300;
+
+  if (scrollPosition >= threshold) {
+    isLoadingMore = true;
+    window.removeEventListener("scroll", handleScroll);
+    renderNextBatch(itemsPerPage);
   }
 }
+
+
+function renderNextBatch(itemsPerPage = 50) {
+  if (filteredResults.length === 0) return;
+
+  const total = filteredResults.length;
+  let nextBatch = [];
+
+  for (let i = 0; i < itemsPerPage; i++) {
+    const index = (renderedCount + i) % total; // wrap around
+    nextBatch.push(filteredResults[index]);
+  }
+
+  renderedCount = (renderedCount + itemsPerPage) % total;
+
+  // create grid if needed
+  let grid = catalogDiv.querySelector(".catalog-grid");
+  if (!grid) {
+    const title = document.createElement("h2");
+    title.textContent = `תוצאות (${filteredResults.length})`;
+    title.style.textAlign = "center";
+    title.style.marginTop = "40px";
+    title.style.color = "#e50914";
+    title.style.fontSize = "28px";
+    title.style.fontWeight = "bold";
+    catalogDiv.appendChild(title);
+
+    grid = document.createElement("div");
+    grid.classList.add("catalog-grid");
+    grid.style.display = "flex";
+    grid.style.flexWrap = "wrap";
+    grid.style.gap = "20px";
+    grid.style.justifyContent = "flex-start";
+    catalogDiv.appendChild(grid);
+  }
+
+  // append items
+  nextBatch.forEach(item => {
+    if (storedLikes[item.id]) {
+      item.likes = storedLikes[item.id].likes;
+      item.liked = storedLikes[item.id].liked;
+    } else item.liked = false;
+
+    const div = document.createElement("div");
+    div.classList.add("item");
+    div.innerHTML = `
+      <img src="${item.img}" alt="${item.name}">
+      <h3>${item.name}</h3>
+      <p><strong>שנה:</strong> ${item.year}</p>
+      <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+      <button class="like-btn ${item.liked ? 'liked' : ''}">
+        <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+      </button>
+    `;
+
+    const btn = div.querySelector(".like-btn");
+    const heart = btn.querySelector(".heart");
+    const count = div.querySelector(".like-count");
+
+    btn.addEventListener("click", () => {
+      item.liked = !item.liked;
+      item.likes += item.liked ? 1 : -1;
+      btn.classList.toggle("liked", item.liked);
+      heart.textContent = item.liked ? "❤️" : "🤍";
+      if (item.liked) createParticles(div);
+      count.textContent = item.likes;
+      storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+      localStorage.setItem("likes", JSON.stringify(storedLikes));
+    });
+
+    grid.appendChild(div);
+  });
+
+  isLoadingMore = false;
+  window.addEventListener("scroll", handleScroll);
+}
+
+
+
 
 
     function renderNewest(list) {
