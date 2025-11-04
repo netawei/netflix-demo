@@ -5,6 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>דף ראשי עם לייקים, מיון וחיפוש</title>
   <style>
+    .genre-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.genre-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: #333;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.genre-btn:hover {
+  background: #444;
+  transform: scale(1.05);
+}
+
+.genre-btn.active {
+  background: #e50914;
+}
+
+
     body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -176,6 +205,7 @@
     <input type="text" id="searchInput" class="search-box" placeholder="חפש סרט או סדרה...">
     <br>
     <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
+    <div id="genreFilter" class="genre-filter"></div>
     <div class="catalog" id="newestCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
@@ -203,6 +233,7 @@
     const sortBtn = document.getElementById("sortBtn");
   
     let catalog = [];
+    let genres = [];
     let groupedCatalog = {};
     let isSorted = false;
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
@@ -222,12 +253,18 @@
           updatedAt:  isNaN(timeMs) ? 0 : timeMs // if updatedAt doesnt exists, treat as very old content
         };
       });
+      
+      genres =[...new Set(data.map(content => content.genre).flat())];
+      renderGenreButtons();
+
+      console.log(genres);
+
+
 
         const newest = [...catalog]
     .sort((a, b) => {
           const dateA = new Date(a.updatedAt);
           const dateB = new Date(b.updatedAt);
-          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
           return dateB - dateA;
       })
       .slice(0, 10);
@@ -238,6 +275,66 @@
       })
       .catch(err => console.error("Fetch error:", err));
   
+      let selectedGenres = new Set();
+
+function renderGenreButtons() {
+  const filterDiv = document.getElementById("genreFilter");
+  filterDiv.innerHTML = "";
+
+  genres.forEach(genre => {
+    const btn = document.createElement("button");
+    btn.classList.add("genre-btn");
+    btn.textContent = genre;
+    btn.addEventListener("click", () => {
+  if (selectedGenres.has(genre)) {
+    selectedGenres.delete(genre);
+    btn.classList.remove("active");
+  } else {
+    selectedGenres.add(genre);
+    btn.classList.add("active");
+  }
+  applyFilters(); // unified filtering
+});
+    filterDiv.appendChild(btn);
+  });
+}
+
+function applyFilters() {
+  const query = searchInput.value.toLowerCase().trim();
+
+  // Start from the full catalog
+  let filtered = [...catalog];
+
+  // 1️⃣ Apply genre filter (if any selected)
+  if (selectedGenres.size > 0) {
+    filtered = filtered.filter(item =>
+      item.genre.some(g => selectedGenres.has(g))
+    );
+  }
+
+  // 2️⃣ Apply search filter (if search not empty)
+  if (query) {
+    filtered = filtered.filter(item =>
+      item.name.toLowerCase().includes(query) ||
+      item.genre.some(g => g.toLowerCase().includes(query))
+    );
+  }
+
+  // 3️⃣ Render the result
+  if (filtered.length === catalog.length && !query && selectedGenres.size === 0) {
+    // Default full view (no filters)
+    const newest = [...catalog]
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+      .slice(0, 10);
+    renderNewest(newest);
+    groupByGenre();
+    renderGroupedCatalog();
+  } else {
+    renderFlatCatalog(filtered);
+  }
+}
+
+
     function renderNewest(list) {
       newestDiv.innerHTML = "";
       const title = document.createElement("h2");
@@ -475,35 +572,7 @@
     });
   
     // Search filter
-    searchInput.addEventListener("input", () => {
-  const query = searchInput.value.toLowerCase();
-
-  if (!query) {
-    // If search is empty, go back to grouped view
-    const newest = [...catalog]
-    .sort((a, b) => {
-          const dateA = new Date(a.updatedAt);
-          const dateB = new Date(b.updatedAt);
-          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
-          return dateB - dateA;
-      })
-      .slice(0, 10);
-    renderNewest(newest);
-    groupByGenre();
-    renderGroupedCatalog();
-    return;
-  }
-
-  // Filter catalog
-  const filtered = catalog.filter(
-    item =>
-      item.name.toLowerCase().includes(query) ||
-      item.genre.some(g => g.toLowerCase().includes(query))
-  );
-
-  // Render flat list
-  renderFlatCatalog(filtered);
-});
+    searchInput.addEventListener("input", applyFilters);
 
   </script>  
 </body>
