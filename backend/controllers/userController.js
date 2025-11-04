@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Content = require('../models/Content');
 const bcrypt = require('bcrypt');
+const mongoose = require('mongoose');
 
 
 exports.registerUser = async (req, res) => {
@@ -119,6 +120,19 @@ exports.addProfile = async (req, res) => {
       });
     }
 
+    // Check if profile name already exists (case-insensitive)
+    const trimmedName = name.trim();
+    const existingProfile = currentProfiles.find(
+      profile => profile.name && profile.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (existingProfile) {
+      return res.status(400).json({ 
+        message: 'Profile name already exists. Please choose a different name.',
+        canAddProfile: true
+      });
+    }
+
     // Add new profile
     const newProfile = {
       name: name.trim(),
@@ -168,15 +182,24 @@ exports.toggleContentLike = async (req, res) => {
       profile.likedContent = [];
     }
 
-    const contentIdNum = Number(contentId);
-    const likedIndex = profile.likedContent.indexOf(contentIdNum);
+    // Convert contentId to string (it should already be a string from frontend, but ensure consistency)
+    const contentIdStr = String(contentId);
+    // Normalize all existing IDs to strings for comparison
+    const normalizedLikedContent = profile.likedContent.map(id => String(id));
+    const likedIndex = normalizedLikedContent.findIndex(id => id === contentIdStr);
 
     if (likedIndex > -1) {
-      // Remove like
-      profile.likedContent.splice(likedIndex, 1);
+      // Remove like - find the actual index in the original array
+      const actualIndex = profile.likedContent.findIndex(id => String(id) === contentIdStr);
+      if (actualIndex > -1) {
+        profile.likedContent.splice(actualIndex, 1);
+      }
     } else {
-      // Add like
-      profile.likedContent.push(contentIdNum);
+      // Add like - check if it doesn't already exist (to avoid duplicates)
+      const exists = profile.likedContent.some(id => String(id) === contentIdStr);
+      if (!exists) {
+        profile.likedContent.push(contentIdStr);
+      }
       
       // Update favoriteGenres based on liked content
       // Initialize favoriteGenres if it doesn't exist
@@ -198,14 +221,8 @@ exports.toggleContentLike = async (req, res) => {
       } else {
         // Try to find content in database to get genres
         try {
-          // Try multiple ways to find content
-          let content = await Content.findById(contentIdNum);
-          
-          // If not found by _id, try to find by searching (in case contentId is a frontend ID)
-          if (!content) {
-            // Could also search by other fields if needed
-            content = await Content.findOne({ _id: contentIdNum });
-          }
+          // Use the contentId string to find the content
+          const content = await Content.findById(contentIdStr);
           
           if (content && content.genre && Array.isArray(content.genre)) {
             content.genre.forEach(genre => {
@@ -215,22 +232,35 @@ exports.toggleContentLike = async (req, res) => {
             });
           }
         } catch (err) {
-          console.log('Content not found for genre update');
+          console.log('Content not found for genre update:', err.message);
         }
       }
     }
 
-    await user.save();
+    // Mark the profiles array as modified so Mongoose saves the nested changes
+    user.markModified('profiles');
+    
+    // Save to database
+    try {
+      await user.save();
+      console.log(`Successfully saved like for profile ${profileName}, userId: ${userId}, contentId: ${contentIdStr}`);
+    } catch (saveErr) {
+      console.error('Error saving user:', saveErr);
+      throw saveErr;
+    }
+
+    // Normalize likedContent to strings for response
+    const updatedLikedContent = (profile.likedContent || []).map(id => String(id));
 
     res.json({
       message: 'Like toggled successfully',
       liked: likedIndex === -1,
-      likedContent: profile.likedContent,
+      likedContent: updatedLikedContent,
       favoriteGenres: profile.preferences?.favoriteGenres || []
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error in toggleContentLike:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -256,8 +286,11 @@ exports.getProfileLikedContent = async (req, res) => {
       return res.status(404).json({ message: 'Profile not found' });
     }
 
+    // Ensure all IDs are returned as strings for consistent comparison
+    const likedContent = (profile.likedContent || []).map(id => String(id));
+    
     res.json({
-      likedContent: profile.likedContent || [],
+      likedContent: likedContent,
       profileName: profile.name
     });
   } catch (err) {
@@ -312,11 +345,12 @@ exports.getRecommendations = async (req, res) => {
     // Also consider genres from liked content
     if (likedContentIds.length > 0) {
       try {
-        // Try to find liked content in database to get their genres
+        // Convert string IDs to ObjectIds for MongoDB query
         const likedContent = await Content.find({
           _id: { $in: likedContentIds.map(id => {
             try {
-              return id; // Try as ObjectId
+              // If it's already an ObjectId string, mongoose will handle it
+              return new mongoose.Types.ObjectId(String(id));
             } catch {
               return null;
             }

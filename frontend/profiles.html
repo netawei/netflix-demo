@@ -101,9 +101,111 @@
       font-weight: bold;
       font-size: 17px;
     }
+    /* Modal Styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-content {
+      background: rgba(0, 0, 0, 0.9);
+      padding: 32px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid #333;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .modal-content h2 {
+      margin: 0 0 20px;
+      font-size: 24px;
+      color: #fff;
+    }
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .modal-label {
+      font-size: 14px;
+      color: #b3b3b3;
+    }
+    .modal-input {
+      padding: 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #111;
+      color: #e5e5e5;
+      font-size: 16px;
+    }
+    .modal-input:focus {
+      outline: 2px solid #fff;
+      border-color: #fff;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 16px;
+      transition: opacity 0.2s;
+    }
+    .modal-btn:hover {
+      opacity: 0.9;
+    }
+    .modal-btn-primary {
+      background: #e50914;
+      color: white;
+    }
+    .modal-btn-secondary {
+      background: #333;
+      color: white;
+    }
+    .modal-error {
+      color: #ff6b6b;
+      font-size: 12px;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
+  <!-- Modal for adding new profile -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal-content">
+      <h2>יצירת פרופיל חדש</h2>
+      <form id="profileForm">
+        <div class="modal-field">
+          <label class="modal-label">שם הפרופיל</label>
+          <input type="text" class="modal-input" id="profileNameInput" placeholder="הזן שם פרופיל" required>
+          <div class="modal-error" id="profileError"></div>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="modal-btn modal-btn-secondary" onclick="closeProfileModal()">ביטול</button>
+          <button type="submit" class="modal-btn modal-btn-primary">יצירה</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <main class="center">
     <h1>מי צופה?</h1>
     <ul class="avatar-grid" id="profiles"></ul>
@@ -162,17 +264,71 @@
       }
     }
 
-    // יצירת פרופיל חדש
-    async function createNewProfile() {
-      const profileName = prompt("הזן שם פרופיל חדש:");
-      if (!profileName || profileName.trim() === "") {
-        return;
-      }
-
+    // Modal functions
+    function openProfileModal() {
       if (!canAddProfile) {
         alert("לא ניתן להוסיף יותר מ-5 פרופילים");
         return;
       }
+      const modal = document.getElementById("profileModal");
+      const input = document.getElementById("profileNameInput");
+      const error = document.getElementById("profileError");
+      modal.classList.add("show");
+      input.value = "";
+      error.textContent = "";
+      input.focus();
+    }
+
+    function closeProfileModal() {
+      const modal = document.getElementById("profileModal");
+      modal.classList.remove("show");
+    }
+
+    // Close modal when clicking outside
+    document.getElementById("profileModal").addEventListener("click", function(e) {
+      if (e.target === this) {
+        closeProfileModal();
+      }
+    });
+
+    // Close modal with ESC key
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") {
+        const modal = document.getElementById("profileModal");
+        if (modal.classList.contains("show")) {
+          closeProfileModal();
+        }
+      }
+    });
+
+    // Handle form submission
+    document.getElementById("profileForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      const profileNameInput = document.getElementById("profileNameInput");
+      const profileError = document.getElementById("profileError");
+      const profileName = profileNameInput.value.trim();
+
+      if (!profileName) {
+        profileError.textContent = "אנא הזן שם פרופיל";
+        return;
+      }
+
+      if (!canAddProfile) {
+        profileError.textContent = "לא ניתן להוסיף יותר מ-5 פרופילים";
+        return;
+      }
+
+      // Check if profile name already exists (case-insensitive)
+      const existingProfile = currentProfiles.find(
+        profile => profile.name && profile.name.toLowerCase() === profileName.toLowerCase()
+      );
+      
+      if (existingProfile) {
+        profileError.textContent = "שם פרופיל זה כבר קיים. אנא בחר שם אחר.";
+        return;
+      }
+
+      profileError.textContent = "";
 
       const defaultAvatars = [
         "https://images.unsplash.com/photo-1517191434949-5e90cd67d2b6?w=900",
@@ -192,7 +348,7 @@
           credentials: 'include',
           body: JSON.stringify({
             userId: userId,
-            name: profileName.trim(),
+            name: profileName,
             avatar: randomAvatar
           })
         });
@@ -200,16 +356,22 @@
         const data = await response.json();
         
         if (!response.ok) {
-          alert(data.message || "שגיאה ביצירת פרופיל");
+          profileError.textContent = data.message || "שגיאה ביצירת פרופיל";
           return;
         }
 
-        // Reload profiles after successful creation
+        // Close modal and reload profiles after successful creation
+        closeProfileModal();
         await renderProfiles();
       } catch (error) {
         console.error('Error creating profile:', error);
-        alert("שגיאה ביצירת פרופיל. נסה שוב.");
+        profileError.textContent = "שגיאה ביצירת פרופיל. נסה שוב.";
       }
+    });
+
+    // יצירת פרופיל חדש
+    function createNewProfile() {
+      openProfileModal();
     }
 
     // הצגת פרופילים בעמוד

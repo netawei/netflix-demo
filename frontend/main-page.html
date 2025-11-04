@@ -176,8 +176,11 @@
     <input type="text" id="searchInput" class="search-box" placeholder="חפש סרט או סדרה...">
     <br>
     <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
+    <div class="catalog" id="newestCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
+
+
 
   <script>
     const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
@@ -186,7 +189,7 @@
     } else {
       window.location.href = "profiles.html";
     }
-
+  
     document.getElementById("logoutBtn").addEventListener("click", () => {
       // Logout from backend
       fetch('http://localhost:5001/api/users/logout', {
@@ -204,34 +207,54 @@
       window.location.href = "index.html";
     });
 
-    const catalog = [
-      { id: 1, name: "Stranger Things", year: 2016, genre: "מדע בדיוני / מתח", likes: 1200, img: "images/stranger_things.jpg" },
-      { id: 2, name: "The Witcher", year: 2019, genre: "פנטזיה / פעולה", likes: 950, img: "images/the_witcher.jpg" },
-      { id: 3, name: "Money Heist", year: 2017, genre: "פשע / דרמה", likes: 2100, img: "images/money_heist.jpg" },
-      { id: 4, name: "Breaking Bad", year: 2008, genre: "דרמה / פשע", likes: 3000, img: "images/breaking_bad.jpg" },
-      { id: 5, name: "Avatar", year: 2009, genre: "מדע בדיוני / הרפתקאות", likes: 1800, img: "images/avatar.jpg" },
-      { id: 6, name: "The Crown", year: 2016, genre: "דרמה / היסטוריה", likes: 700, img: "images/the_crown.jpg" },
-      { id: 7, name: "Inception", year: 2010, genre: "מדע בדיוני / פעולה", likes: 2500, img: "images/inception.jpg" }
-    ];
-
     const API_BASE_URL = 'http://localhost:5001/api/users';
     const userId = activeProfile?.userId || localStorage.getItem("userId");
     const profileName = activeProfile?.name;
     let likedContentIds = []; // Array of content IDs that are liked by this profile
     
-    const catalogDiv = document.getElementById("catalog");
-    const sortBtn = document.getElementById("sortBtn");
-    const searchInput = document.getElementById("searchInput");
 
-    const originalOrder = [...catalog];
+    const catalogDiv = document.getElementById("catalog");
+    const newestDiv = document.getElementById("newestCatalog");
+    const searchInput = document.getElementById("searchInput");
+    const sortBtn = document.getElementById("sortBtn");
+  
+    let catalog = [];
+    let groupedCatalog = {};
     let isSorted = false;
+    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+  
+    fetch("http://localhost:5001/api/content")
+      .then(res => res.json())
+      .then(data => {
+        catalog = data.map(content => {
+          const timeMs = new Date(content.updatedAt).getTime();
+          return {
+            id: String(content._id), // Ensure ID is always a string
+            name: content.title,
+            year: content.releaseYear,
+            likes: content.likes,
+            img: content.posterUrl,
+            genre: content.genre,
+            updatedAt: isNaN(timeMs) ? 0 : timeMs // if updatedAt doesnt exists, treat as very old content
+          };
+        });
+        // After catalog is loaded, load liked content and render
+        loadLikedContent().then((loadedIds) => {
+          console.log('Loaded liked content IDs for profile:', profileName, 'IDs:', loadedIds);
+          renderCatalog(catalog);
+        }).catch(err => {
+          console.error('Error loading liked content:', err);
+          renderCatalog(catalog);
+        });
+      })
+      .catch(err => console.error("Fetch error:", err));
 
     // Load liked content from backend
     async function loadLikedContent() {
       if (!userId || !profileName) {
         console.warn('No userId or profileName, using localStorage fallback');
         const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
-        return Object.keys(storedLikes).filter(key => storedLikes[key].liked).map(Number);
+        return Object.keys(storedLikes).filter(key => storedLikes[key].liked);
       }
 
       try {
@@ -249,7 +272,8 @@
 
         if (response.ok) {
           const data = await response.json();
-          likedContentIds = data.likedContent || [];
+          // Ensure all IDs are strings for consistent comparison
+          likedContentIds = (data.likedContent || []).map(id => String(id));
           return likedContentIds;
         } else {
           throw new Error('Failed to load liked content');
@@ -258,29 +282,76 @@
         console.error('Error loading liked content:', error);
         // Fallback to localStorage
         const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
-        return Object.keys(storedLikes).filter(key => storedLikes[key].liked).map(Number);
+        return Object.keys(storedLikes).filter(key => storedLikes[key].liked);
       }
     }
 
     function renderCatalog(items) {
-      catalogDiv.innerHTML = "";
+      // Update liked status for all items
       items.forEach(item => {
         // Check if this content is liked by the current profile
-        item.liked = likedContentIds.includes(item.id);
+        // Convert both to strings for consistent comparison
+        const itemIdStr = String(item.id);
+        item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
+      });
+      
+      // Get the 10 newest items
+      const newest = [...items]
+        .sort((a, b) => {
+          const dateA = new Date(a.updatedAt);
+          const dateB = new Date(b.updatedAt);
+          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
+          return dateB - dateA;
+        })
+        .slice(0, 10);
+      
+      renderNewest(newest);
+      groupByGenre();
+      renderGroupedCatalog();
+    }
+  
+    function renderNewest(list) {
+      newestDiv.innerHTML = "";
+      const title = document.createElement("h2");
+      title.textContent = "10 הסדרות החדשות ביותר";
+      title.style.textAlign = "center";
+      title.style.marginTop = "40px";
+      title.style.color = "#e50914";
+      title.style.fontSize = "28px";
+      title.style.fontWeight = "bold";
+      
+      newestDiv.appendChild(title);
+      const grid = document.createElement("div");
+      grid.classList.add("catalog-grid");
+      grid.style.display = "flex";
+      grid.style.flexWrap = "wrap";
+      grid.style.gap = "20px";
+      grid.style.justifyContent = "flex-start";
+      
+      list.forEach(item => {
+        // Use the liked status from likedContentIds (loaded from database)
+        // item.liked is already set in renderCatalog() based on likedContentIds
+        // Only use storedLikes for likes count if needed, but not for liked status
+        if (storedLikes[item.id] && storedLikes[item.id].likes !== undefined) {
+          item.likes = storedLikes[item.id].likes;
+        }
+        // Ensure liked status is based on database (likedContentIds)
+        // item.liked should already be set correctly in renderCatalog()
+        const itemIdStr = String(item.id);
+        item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
 
         const div = document.createElement("div");
         div.classList.add("item");
         div.innerHTML = `
           <img src="${item.img}" alt="${item.name}">
-          <h2>${item.name}</h2>
+          <h3>${item.name}</h3>
           <p><strong>שנה:</strong> ${item.year}</p>
-          <p><strong>ז'אנר:</strong> ${item.genre}</p>
           <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
             <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
           </button>
         `;
-        catalogDiv.appendChild(div);
+        grid.appendChild(div);
 
         const btn = div.querySelector(".like-btn");
         const heart = btn.querySelector(".heart");
@@ -316,29 +387,39 @@
                   'Content-Type': 'application/json',
                 },
                 credentials: 'include',
-                body: JSON.stringify({
+                  body: JSON.stringify({
                   userId: userId,
                   profileName: profileName,
-                  contentId: item.id
+                  contentId: String(item.id), // Ensure contentId is a string
+                  contentGenres: item.genre || []
                 })
               });
 
-              if (!response.ok) {
+              if (response.ok) {
+                // Update likedContentIds from server response to ensure consistency
+                const data = await response.json();
+                if (data.likedContent) {
+                  likedContentIds = data.likedContent.map(id => String(id));
+                  console.log('Like saved successfully. Updated likedContentIds:', likedContentIds);
+                }
+              } else {
                 // Revert if save failed
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
                 item.liked = wasLiked;
                 if(wasLiked) {
                   item.likes--;
                   btn.classList.remove("liked");
                   heart.textContent = '🤍';
-                  likedContentIds = likedContentIds.filter(id => id !== item.id);
+                  likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
                 } else {
                   item.likes++;
                   btn.classList.add("liked");
                   heart.textContent = '❤️';
-                  likedContentIds.push(item.id);
+                  likedContentIds.push(String(item.id));
                 }
                 count.textContent = item.likes;
                 alert("שגיאה בשמירת הלייק. נסה שוב.");
+                console.error('Save failed:', errorData);
               }
             } catch (error) {
               console.error('Error saving like:', error);
@@ -364,12 +445,314 @@
             storedLikes[item.id] = { likes: item.likes, liked: item.liked };
             localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
           }
+
+        });
+      });
+      newestDiv.appendChild(grid);
+    }
+    function groupByGenre() {
+      groupedCatalog = {};
+      catalog.forEach(item => {
+        if (!item.genre || item.genre.length === 0) {
+          item.genre = ["NoIdeaGenre"]; 
+        }
+        item.genre.forEach(g => {
+          const genre = g.trim();
+          if (!groupedCatalog[genre]) groupedCatalog[genre] = [];
+          groupedCatalog[genre].push(item);
         });
       });
     }
+  
+    function renderGroupedCatalog() {
+      catalogDiv.innerHTML = "";
+      Object.keys(groupedCatalog).forEach(genre => {
+        const section = document.createElement("div");
+        section.classList.add("genre-section");
+        const title = document.createElement("h2");
+        title.textContent = genre;
+        title.style.textAlign = "right";
+        title.style.marginTop = "40px";
+        title.style.color = "#e50914";
+  
+        const grid = document.createElement("div");
+        grid.classList.add("catalog-grid");
+        grid.style.display = "flex";
+        grid.style.flexWrap = "wrap";
+        grid.style.gap = "20px";
+        grid.style.justifyContent = "flex-start";
+  
+        groupedCatalog[genre].forEach(item => {
+          // Use the liked status from likedContentIds (loaded from database)
+          // item.liked is already set in renderCatalog() based on likedContentIds
+          // Only use storedLikes for likes count if needed, but not for liked status
+          if (storedLikes[item.id] !== undefined && storedLikes[item.id].likes !== undefined) {
+            item.likes = storedLikes[item.id].likes;
+          }
+          // Ensure liked status is based on database (likedContentIds)
+          // item.liked should already be set correctly in renderCatalog()
+          const itemIdStr = String(item.id);
+          item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
 
-    function createParticles(container){
-      for(let i=0;i<8;i++){
+          const div = document.createElement("div");
+          div.classList.add("item");
+          div.innerHTML = `
+            <img src="${item.img}" alt="${item.name}">
+            <h3>${item.name}</h3>
+            <p><strong>שנה:</strong> ${item.year}</p>
+            <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+            <button class="like-btn ${item.liked ? 'liked' : ''}">
+              <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+            </button>
+          `;
+  
+          grid.appendChild(div);
+  
+          const btn = div.querySelector(".like-btn");
+          const heart = btn.querySelector(".heart");
+          const count = div.querySelector(".like-count");
+  
+          btn.addEventListener("click", async () => {
+            const wasLiked = item.liked;
+            item.liked = !item.liked;
+            
+            // Update UI immediately for better UX
+            if(item.liked){
+              item.likes++;
+              btn.classList.add("liked");
+              heart.textContent = '❤️';
+              heart.classList.add("animate");
+              createParticles(div);
+              likedContentIds.push(String(item.id));
+            } else {
+              item.likes--;
+              btn.classList.remove("liked");
+              heart.textContent = '🤍';
+              likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
+            }
+            count.textContent = item.likes;
+            setTimeout(() => heart.classList.remove("animate"), 300);
+
+            // Save to backend
+            if (userId && profileName) {
+              try {
+                const response = await fetch(`${API_BASE_URL}/profiles/like`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    userId: userId,
+                    profileName: profileName,
+                    contentId: String(item.id), // Ensure contentId is a string
+                    contentGenres: item.genre || []
+                  })
+                });
+
+                if (response.ok) {
+                  // Update likedContentIds from server response to ensure consistency
+                  const data = await response.json();
+                  if (data.likedContent) {
+                    likedContentIds = data.likedContent.map(id => String(id));
+                  }
+                } else {
+                  // Revert if save failed
+                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                  item.liked = wasLiked;
+                  if(wasLiked) {
+                    item.likes--;
+                    btn.classList.remove("liked");
+                    heart.textContent = '🤍';
+                    likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
+                  } else {
+                    item.likes++;
+                    btn.classList.add("liked");
+                    heart.textContent = '❤️';
+                    likedContentIds.push(String(item.id));
+                  }
+                  count.textContent = item.likes;
+                  alert("שגיאה בשמירת הלייק. נסה שוב.");
+                  console.error('Save failed:', errorData);
+                }
+              } catch (error) {
+                console.error('Error saving like:', error);
+                // Revert on error
+                item.liked = wasLiked;
+                if(wasLiked) {
+                  item.likes--;
+                  btn.classList.remove("liked");
+                  heart.textContent = '🤍';
+                  likedContentIds = likedContentIds.filter(id => id !== item.id);
+                } else {
+                  item.likes++;
+                  btn.classList.add("liked");
+                  heart.textContent = '❤️';
+                  likedContentIds.push(item.id);
+                }
+                count.textContent = item.likes;
+                alert("שגיאה בשמירת הלייק. נסה שוב.");
+              }
+            } else {
+              // Fallback to localStorage if no userId/profileName
+              const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
+              storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+              localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
+            }
+          });
+        });
+  
+        section.appendChild(title);
+        section.appendChild(grid);
+        catalogDiv.appendChild(section);
+      });
+    }
+    
+    function renderFlatCatalog(list) {
+  catalogDiv.innerHTML = ""; // clear everything
+  newestDiv.innerHTML = ""; // clear everything
+
+  const title = document.createElement("h2");
+  title.textContent = `Search Results(${list.length})`;
+  title.style.textAlign = "center";
+  title.style.marginTop = "40px";
+  title.style.color = "#e50914";
+  title.style.fontSize = "28px";
+  title.style.fontWeight = "bold";
+
+  catalogDiv.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.classList.add("catalog-grid");
+  grid.style.display = "flex";
+  grid.style.flexWrap = "wrap";
+  grid.style.gap = "20px";
+  grid.style.justifyContent = "flex-start";
+
+  list.forEach(item => {
+    // Use the liked status from likedContentIds (loaded from database)
+    // Only use storedLikes for likes count if needed, but not for liked status
+    if (storedLikes[item.id] !== undefined && storedLikes[item.id].likes !== undefined) {
+      item.likes = storedLikes[item.id].likes;
+    }
+    // Ensure liked status is based on database (likedContentIds)
+    const itemIdStr = String(item.id);
+    item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
+
+    const div = document.createElement("div");
+    div.classList.add("item");
+    div.innerHTML = `
+      <img src="${item.img}" alt="${item.name}">
+      <h3>${item.name}</h3>
+      <p><strong>שנה:</strong> ${item.year}</p>
+      <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+      <button class="like-btn ${item.liked ? 'liked' : ''}">
+        <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+      </button>
+    `;
+
+    grid.appendChild(div);
+
+    const btn = div.querySelector(".like-btn");
+    const heart = btn.querySelector(".heart");
+    const count = div.querySelector(".like-count");
+
+    btn.addEventListener("click", async () => {
+      const wasLiked = item.liked;
+      item.liked = !item.liked;
+      
+      // Update UI immediately for better UX
+      if(item.liked){
+        item.likes++;
+        btn.classList.add("liked");
+        heart.textContent = '❤️';
+        heart.classList.add("animate");
+        createParticles(div);
+        likedContentIds.push(item.id);
+      } else {
+        item.likes--;
+        btn.classList.remove("liked");
+        heart.textContent = '🤍';
+        likedContentIds = likedContentIds.filter(id => id !== item.id);
+      }
+      count.textContent = item.likes;
+      setTimeout(() => heart.classList.remove("animate"), 300);
+
+      // Save to backend
+      if (userId && profileName) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/profiles/like`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              userId: userId,
+              profileName: profileName,
+              contentId: String(item.id), // Ensure contentId is a string
+              contentGenres: item.genre || []
+            })
+          });
+
+          if (response.ok) {
+            // Update likedContentIds from server response to ensure consistency
+            const data = await response.json();
+            if (data.likedContent) {
+              likedContentIds = data.likedContent.map(id => String(id));
+              console.log('Like saved successfully. Updated likedContentIds:', likedContentIds);
+            }
+          } else {
+            // Revert if save failed
+            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+            item.liked = wasLiked;
+            if(wasLiked) {
+              item.likes--;
+              btn.classList.remove("liked");
+              heart.textContent = '🤍';
+              likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
+            } else {
+              item.likes++;
+              btn.classList.add("liked");
+              heart.textContent = '❤️';
+              likedContentIds.push(String(item.id));
+            }
+            count.textContent = item.likes;
+            alert("שגיאה בשמירת הלייק. נסה שוב.");
+            console.error('Save failed:', errorData);
+          }
+        } catch (error) {
+          console.error('Error saving like:', error);
+          // Revert on error
+          item.liked = wasLiked;
+          if(wasLiked) {
+            item.likes--;
+            btn.classList.remove("liked");
+            heart.textContent = '🤍';
+            likedContentIds = likedContentIds.filter(id => id !== item.id);
+          } else {
+            item.likes++;
+            btn.classList.add("liked");
+            heart.textContent = '❤️';
+            likedContentIds.push(item.id);
+          }
+          count.textContent = item.likes;
+          alert("שגיאה בשמירת הלייק. נסה שוב.");
+        }
+      } else {
+        // Fallback to localStorage if no userId/profileName
+        const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
+        storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+        localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
+      }
+    });
+  });
+
+  catalogDiv.appendChild(grid);
+}
+
+    function createParticles(container) {
+      for (let i = 0; i < 8; i++) {
         const particle = document.createElement("span");
         particle.classList.add("particle");
         const x = Math.random() * 80 - 40 + "px";
@@ -377,36 +760,57 @@
         particle.style.setProperty("--x", x);
         particle.style.setProperty("--y", y);
         container.appendChild(particle);
-        setTimeout(()=> container.removeChild(particle), 600);
+        setTimeout(() => container.removeChild(particle), 600);
       }
     }
 
-    // Load liked content and then render
-    loadLikedContent().then(() => {
-      renderCatalog(catalog);
-    });
+
 
     sortBtn.addEventListener("click", () => {
       if (!isSorted) {
-        const sorted = [...catalog].sort((a,b) => a.name.localeCompare(b.name));
-        renderCatalog(sorted);
-        sortBtn.textContent = "החזר לסדר המקורי";
+        catalog.sort((a, b) => a.name.localeCompare(b.name));
         isSorted = true;
+        sortBtn.textContent = "החזר לסדר המקורי";
       } else {
-        renderCatalog(originalOrder);
-        sortBtn.textContent = "מיין אלפביתי לפי שם";
+        catalog.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
         isSorted = false;
+        sortBtn.textContent = "מיין אלפביתי לפי שם";
       }
+      groupByGenre();
+      renderGroupedCatalog();
     });
-
+  
+    // Search filter
     searchInput.addEventListener("input", () => {
-      const query = searchInput.value.toLowerCase();
-      const filtered = catalog.filter(item => 
-        item.name.toLowerCase().includes(query) || 
-        item.genre.toLowerCase().includes(query)
-      );
-      renderCatalog(filtered);
-    });
+  const query = searchInput.value.toLowerCase();
+
+  if (!query) {
+    // If search is empty, go back to grouped view
+    const newest = [...catalog]
+    .sort((a, b) => {
+          const dateA = new Date(a.updatedAt);
+          const dateB = new Date(b.updatedAt);
+          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
+          return dateB - dateA;
+      })
+      .slice(0, 10);
+    renderNewest(newest);
+    groupByGenre();
+    renderGroupedCatalog();
+    return;
+  }
+
+  // Filter catalog
+  const filtered = catalog.filter(
+    item =>
+      item.name.toLowerCase().includes(query) ||
+      item.genre.some(g => g.toLowerCase().includes(query))
+  );
+
+  // Render flat list
+  renderFlatCatalog(filtered);
+});
+    
   </script>
 </body>
 </html>
