@@ -38,11 +38,18 @@ exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).send("Invalid email or password");
+    if (!user) {
+      // Email doesn't exist in DB
+      return res.status(400).json({ message: "Email not found, please register first" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).send('Invalid email or password');
+    if (!isMatch) {
+      // Password incorrect
+      return res.status(400).json({ message: "Incorrect password" });
+    }
 
+    // If credentials are correct → create session
     req.session.user = {
       id: user._id,
       name: user.name,
@@ -54,7 +61,7 @@ exports.loginUser = async (req, res) => {
       message: 'Login successful',
       userData: {
         id: user._id,
-        name: user.name, 
+        name: user.name,
         email: user.email,
         isAdmin: user.isAdmin,
         profiles: user.profiles || []
@@ -62,9 +69,10 @@ exports.loginUser = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Server error');
+    res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 exports.logoutUser = (req, res) => {
   req.session.destroy(err => {
@@ -239,14 +247,39 @@ exports.toggleContentLike = async (req, res) => {
 
     // Mark the profiles array as modified so Mongoose saves the nested changes
     user.markModified('profiles');
-    
-    // Save to database
+
+    // Determine like delta for content.likes update
+    const likeDelta = likedIndex > -1 ? -1 : 1;
+
+    // Save user profile likes first
     try {
       await user.save();
       console.log(`Successfully saved like for profile ${profileName}, userId: ${userId}, contentId: ${contentIdStr}`);
     } catch (saveErr) {
       console.error('Error saving user:', saveErr);
       throw saveErr;
+    }
+
+    // Update content likes counter in DB atomically
+    let updatedLikes = null;
+    try {
+      // Increment/decrement likes; if field doesn't exist, Mongo will create it
+      const updatedContent = await Content.findByIdAndUpdate(
+        contentIdStr,
+        { $inc: { likes: likeDelta } },
+        { new: true }
+      );
+      if (updatedContent) {
+        // Guard against negative likes
+        if (typeof updatedContent.likes === 'number' && updatedContent.likes < 0) {
+          updatedContent.likes = 0;
+          await updatedContent.save();
+        }
+        updatedLikes = updatedContent.likes ?? null;
+      }
+    } catch (contentErr) {
+      console.error('Error updating content likes:', contentErr);
+      // Do not fail the whole request if content likes update fails; continue
     }
 
     // Normalize likedContent to strings for response
@@ -256,6 +289,7 @@ exports.toggleContentLike = async (req, res) => {
       message: 'Like toggled successfully',
       liked: likedIndex === -1,
       likedContent: updatedLikedContent,
+      updatedLikes: updatedLikes,
       favoriteGenres: profile.preferences?.favoriteGenres || []
     });
   } catch (err) {
