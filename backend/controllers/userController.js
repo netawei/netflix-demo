@@ -499,3 +499,56 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 }
+
+
+exports.updateProfile = async (req, res) => {
+    const {profileId, userId} = req.params;
+    const newProfileData = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profileIndex = user.profiles.findIndex(p => p._id.toString() === profileId);
+    if (profileIndex === -1) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    const existingProfile = user.profiles[profileIndex].toObject();
+
+    const updatedProfile = {
+        ...existingProfile,
+        ...newProfileData
+    }
+
+    user.profiles[profileIndex] = updatedProfile;
+    await user.save();
+
+    res.json({
+      message: 'Profile updated successfully',
+      profile: updatedProfile,
+      profiles: user.profiles
+    });
+
+}
+
+exports.deleteProfile = async (req, res) => {
+    const {profileId, userId} = req.params;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const profileIndex = user.profiles.findIndex(p => p._id.toString() === profileId);
+    if (profileIndex === -1) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+    
+    user.profiles.pop(profileIndex);
+    await user.save();
+
+    res.json({
+      message: 'Profile deleted successfully',
+      profiles: user.profiles
+    });
+}
