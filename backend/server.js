@@ -22,7 +22,7 @@ mongoose.set("strictQuery", false);
 
 const app = express();
 
-// // allow our local frontend to access backend api
+// allow our local frontend to access backend api
 // app.use(
 // 	cors({
 // 		origin: "*", // your frontend address

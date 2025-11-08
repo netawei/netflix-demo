@@ -861,9 +861,31 @@
         profilesContainer.appendChild(addLi);
       }
     }
-
-    // טעינת הפרופילים בהתחלה
     renderProfiles();
+    const checkAdminStatus = () => {
+      const isAdmin = localStorage.getItem("isAdmin") === "true";
+      console.log('isAdmin from localStorage:', isAdmin);
+      
+      if (isAdmin) {
+        const buttonsContainer = document.querySelector('.buttons-container');
+        
+        if (buttonsContainer) {
+          const adminBtn = document.createElement('button');
+          adminBtn.className = 'btn-admin';
+          adminBtn.textContent = 'הוספת תוכן';
+          adminBtn.onclick = () => {
+            window.location.href = 'add-content.html';
+          };
+          
+          buttonsContainer.appendChild(adminBtn);
+          console.log('Admin button added');
+        }
+      }
+    };
+
+    setTimeout(() => {
+      checkAdminStatus();
+    }, 100);
   </script>
 </body>
 </html>
