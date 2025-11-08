@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>הוספת תוכן חדש</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 40px;
+      border-radius: 12px;
+      border: 1px solid #333;
+    }
+    h1 {
+      color: #e50914;
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 32px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+    }
+    .form-group.full-width {
+      grid-column: span 2;
+    }
+    label {
+      color: #b3b3b3;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    input, select, textarea {
+      padding: 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #000;
+      color: #e5e5e5;
+      font-size: 16px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    input[type="file"] {
+      padding: 8px;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #e50914;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    .chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .chip {
+      background: #333;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chip-remove {
+      cursor: pointer;
+      color: #e50914;
+      font-weight: bold;
+    }
+    .add-chip-container {
+      display: flex;
+      gap: 8px;
+    }
+    .add-chip-container input {
+      flex: 1;
+    }
+    .btn-add-chip {
+      padding: 12px 20px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-add-chip:hover {
+      background: #444;
+    }
+    .buttons-container {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 40px;
+    }
+    .btn {
+      padding: 14px 40px;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.3s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #f6121d, #c50e15);
+      transform: scale(1.05);
+    }
+    .btn-primary:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-secondary {
+      background: #333;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background: #444;
+    }
+    .error-message {
+      color: #ff6b6b;
+      font-size: 14px;
+      margin-top: 5px;
+      display: none;
+    }
+    .success-message {
+      background: #27ae60;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+      display: none;
+      animation: slideDown 0.5s ease-out;
+    }
+    .upload-preview {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #27ae60;
+    }
+    .loading-spinner {
+      display: none;
+      margin-right: 10px;
+    }
+    .loading-spinner.active {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    #seasonsSection {
+      display: none;
+      margin-top: 30px;
+      border-top: 2px solid #333;
+      padding-top: 30px;
+    }
+    .seasons-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .seasons-header h2 {
+      color: #e50914;
+      margin: 0;
+    }
+    .btn-add-season {
+      padding: 10px 20px;
+      background: #e50914;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-add-season:hover {
+      background: #f6121d;
+    }
+    .season-item {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .season-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+    .season-title {
+      color: #e50914;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .btn-remove {
+      background: #c50e15;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-remove:hover {
+      background: #e50914;
+    }
+    .episodes-container {
+      margin-top: 15px;
+    }
+    .episode-item {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 10px;
+      display: grid;
+      grid-template-columns: 50px 1fr 100px 1fr 60px;
+      gap: 15px;
+      align-items: center;
+    }
+    .episode-file-input {
+      padding: 6px;
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e5e5e5;
+      font-size: 12px;
+    }
+    .episode-number {
+      color: #e50914;
+      font-weight: bold;
+      text-align: center;
+    }
+    .episode-input {
+      padding: 8px;
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e5e5e5;
+      font-size: 14px;
+    }
+    .btn-add-episode {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-add-episode:hover {
+      background: #444;
+    }
+    .collapse-icon {
+      cursor: pointer;
+      margin-left: 10px;
+      transition: transform 0.3s;
+    }
+    .collapsed .collapse-icon {
+      transform: rotate(-90deg);
+    }
+    .collapsed .episodes-container {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>הוספת תוכן חדש</h1>
+    
+    <div class="success-message" id="successMessage">
+      התוכן נוסף בהצלחה!
+    </div>
+
+    <form id="contentForm" novalidate>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="title">כותרת *</label>
+          <input type="text" id="title">
+          <span class="error-message" id="titleError">שדה חובה</span>
+        </div>
+
+        <div class="form-group">
+          <label for="type">סוג *</label>
+          <select id="type" onchange="handleTypeChange()">
+            <option value="">בחר סוג</option>
+            <option value="movie">סרט</option>
+            <option value="series">סדרה</option>
+          </select>
+          <span class="error-message" id="typeError">שדה חובה</span>
+        </div>
+
+        <div class="form-group">
+          <label for="director">במאי *</label>
+          <input type="text" id="director">
+          <span class="error-message" id="directorError">שדה חובה</span>
+        </div>
+
+        <div class="form-group">
+          <label for="releaseYear">שנת יציאה</label>
+          <input type="number" id="releaseYear" min="1900" max="2030">
+        </div>
+
+        <div class="form-group">
+          <label for="posterFile">העלאת תמונת פוסטר *</label>
+          <input type="file" id="posterFile" accept="image/*">
+          <span class="error-message" id="posterError">יש להעלות תמונה</span>
+          <span class="upload-preview" id="posterPreview"></span>
+        </div>
+        
+        <div class="form-group" id="videoFileGroup">
+          <label for="videoFile">העלאת קובץ וידאו *</label>
+          <input type="file" id="videoFile" accept="video/mp4,video/mov">
+          <span class="error-message" id="videoError">יש להעלות קובץ וידאו</span>
+          <span class="upload-preview" id="videoPreview"></span>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="description">תיאור</label>
+          <textarea id="description"></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <label>ז'אנרים *</label>
+          <div class="add-chip-container">
+            <input type="text" id="genreInput" placeholder="הכנס ז'אנר">
+            <button type="button" class="btn-add-chip" onclick="addGenre()">הוסף</button>
+          </div>
+          <div class="chips-container" id="genresContainer"></div>
+          <span class="error-message" id="genreError">יש להוסיף לפחות ז'אנר אחד</span>
+        </div>
+
+        <div class="form-group full-width">
+          <label>שחקנים</label>
+          <div class="add-chip-container">
+            <input type="text" id="castInput" placeholder="הכנס שם שחקן">
+            <button type="button" class="btn-add-chip" onclick="addCast()">הוסף</button>
+          </div>
+          <div class="chips-container" id="castContainer"></div>
+        </div>
+      </div>
+
+      <div id="seasonsSection">
+        <div class="seasons-header">
+          <h2>עונות ופרקים</h2>
+          <button type="button" class="btn-add-season" onclick="addSeason()">
+            + הוסף עונה
+          </button>
+        </div>
+        <div id="seasonsContainer"></div>
+      </div>
+
+      <div class="buttons-container">
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='profiles.html'">
+          ביטול
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <span class="loading-spinner" id="loadingSpinner"></span>
+          הוסף תוכן
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const isAdmin = localStorage.getItem("isAdmin") === "true";
+    const userId = localStorage.getItem("userId");
+    
+    if (!isAdmin || !userId) {
+      alert("אין לך הרשאות לגשת לעמוד זה");
+      window.location.href = "profiles.html";
+    }
+
+    let genres = [];
+    let cast = [];
+    let seasons = [];
+
+    document.getElementById('posterFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        document.getElementById('posterPreview').textContent = `✓ ${file.name}`;
+        document.getElementById('posterError').style.display = 'none';
+      }
+    });
+
+    document.getElementById('videoFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        document.getElementById('videoPreview').textContent = `✓ ${file.name} (${sizeMB} MB)`;
+        document.getElementById('videoError').style.display = 'none';
+      }
+    });
+
+    function handleTypeChange() {
+      const type = document.getElementById('type').value;
+      const seasonsSection = document.getElementById('seasonsSection');
+      const videoFileGroup = document.getElementById('videoFileGroup');
+      
+      if (type === 'series') {
+        seasonsSection.style.display = 'block';
+        videoFileGroup.style.display = 'none';
+      } else {
+        seasonsSection.style.display = 'none';
+        videoFileGroup.style.display = 'flex';
+      }
+    }
+
+    function addSeason() {
+      const seasonNumber = seasons.length + 1;
+      seasons.push({
+        seasonNumber: seasonNumber,
+        episodes: []
+      });
+      renderSeasons();
+    }
+
+    function removeSeason(index) {
+      seasons.splice(index, 1);
+      seasons.forEach((season, i) => {
+        season.seasonNumber = i + 1;
+      });
+      renderSeasons();
+    }
+
+    function addEpisode(seasonIndex) {
+      const season = seasons[seasonIndex];
+      const episodeNumber = season.episodes.length + 1;
+      season.episodes.push({
+        episodeNumber: episodeNumber,
+        title: '',
+        duration: 45,
+        videoFile: null
+      });
+      renderSeasons();
+    }
+
+    function removeEpisode(seasonIndex, episodeIndex) {
+      seasons[seasonIndex].episodes.splice(episodeIndex, 1);
+      seasons[seasonIndex].episodes.forEach((episode, i) => {
+        episode.episodeNumber = i + 1;
+      });
+      renderSeasons();
+    }
+
+    function updateEpisode(seasonIndex, episodeIndex, field, value) {
+      seasons[seasonIndex].episodes[episodeIndex][field] = value;
+    }
+
+    function updateEpisodeFile(seasonIndex, episodeIndex, file) {
+      seasons[seasonIndex].episodes[episodeIndex].videoFile = file;
+      const statusSpan = document.getElementById(`episodeFileStatus_${seasonIndex}_${episodeIndex}`);
+      if (statusSpan && file) {
+        statusSpan.textContent = '✓ ' + file.name;
+      }
+    }
+
+    function toggleSeason(index) {
+      const seasonElement = document.querySelectorAll('.season-item')[index];
+      seasonElement.classList.toggle('collapsed');
+    }
+
+    function renderSeasons() {
+      const container = document.getElementById('seasonsContainer');
+      container.innerHTML = seasons.map((season, seasonIndex) => `
+        <div class="season-item">
+          <div class="season-header">
+            <div>
+              <span class="season-title">עונה ${season.seasonNumber}</span>
+              <span class="collapse-icon" onclick="toggleSeason(${seasonIndex})">▼</span>
+            </div>
+            <button type="button" class="btn-remove" onclick="removeSeason(${seasonIndex})">
+              הסר עונה
+            </button>
+          </div>
+          <div class="episodes-container">
+            ${season.episodes.map((episode, episodeIndex) => `
+              <div class="episode-item">
+                <div class="episode-number">פרק ${episode.episodeNumber}</div>
+                <input type="text" 
+                       class="episode-input" 
+                       placeholder="שם הפרק"
+                       value="${episode.title}"
+                       onchange="updateEpisode(${seasonIndex}, ${episodeIndex}, 'title', this.value)">
+                <input type="number" 
+                       class="episode-input" 
+                       placeholder="משך (דקות)"
+                       value="${episode.duration}"
+                       min="1"
+                       onchange="updateEpisode(${seasonIndex}, ${episodeIndex}, 'duration', parseInt(this.value))">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <input type="file" 
+                         class="episode-file-input" 
+                         accept="video/mp4,video/mov"
+                         id="episodeFile_${seasonIndex}_${episodeIndex}"
+                         onchange="updateEpisodeFile(${seasonIndex}, ${episodeIndex}, this.files[0])">
+                  <span style="font-size: 11px; color: #27ae60;" id="episodeFileStatus_${seasonIndex}_${episodeIndex}">
+                    ${episode.videoFile ? '✓ ' + episode.videoFile.name : ''}
+                  </span>
+                </div>
+                <button type="button" class="btn-remove" onclick="removeEpisode(${seasonIndex}, ${episodeIndex})">
+                  הסר
+                </button>
+              </div>
+            `).join('')}
+            <button type="button" class="btn-add-episode" onclick="addEpisode(${seasonIndex})">
+              + הוסף פרק
+            </button>
+          </div>
+        </div>
+      `).join('');
+ 
+      seasons.forEach((season, seasonIndex) => {
+        season.episodes.forEach((episode, episodeIndex) => {
+          if (episode.videoFile) {
+            const fileInput = document.getElementById(`episodeFile_${seasonIndex}_${episodeIndex}`);
+            const statusSpan = document.getElementById(`episodeFileStatus_${seasonIndex}_${episodeIndex}`);
+            if (statusSpan) {
+              statusSpan.textContent = '✓ ' + episode.videoFile.name;
+            }
+          }
+        });
+      });
+    }
+
+    function addGenre() {
+      const input = document.getElementById('genreInput');
+      const value = input.value.trim();
+      
+      if (value && !genres.includes(value)) {
+        genres.push(value);
+        renderGenres();
+        input.value = '';
+        document.getElementById('genreError').style.display = 'none';
+      }
+    }
+
+    function addCast() {
+      const input = document.getElementById('castInput');
+      const value = input.value.trim();
+      
+      if (value && !cast.includes(value)) {
+        cast.push(value);
+        renderCast();
+        input.value = '';
+      }
+    }
+
+    function removeGenre(index) {
+      genres.splice(index, 1);
+      renderGenres();
+    }
+
+    function removeCast(index) {
+      cast.splice(index, 1);
+      renderCast();
+    }
+
+    function renderGenres() {
+      const container = document.getElementById('genresContainer');
+      container.innerHTML = genres.map((genre, index) => `
+        <div class="chip">
+          ${genre}
+          <span class="chip-remove" onclick="removeGenre(${index})">×</span>
+        </div>
+      `).join('');
+    }
+
+    function renderCast() {
+      const container = document.getElementById('castContainer');
+      container.innerHTML = cast.map((actor, index) => `
+        <div class="chip">
+          ${actor}
+          <span class="chip-remove" onclick="removeCast(${index})">×</span>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('genreInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addGenre();
+      }
+    });
+
+    document.getElementById('castInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addCast();
+      }
+    });
+
+    document.getElementById('contentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      document.querySelectorAll('.error-message').forEach(el => {
+        el.style.display = 'none';
+      });
+      
+      let hasError = false;
+      
+      const title = document.getElementById('title').value.trim();
+      if (!title) {
+        document.getElementById('titleError').style.display = 'block';
+        hasError = true;
+      }
+      
+      const type = document.getElementById('type').value;
+      if (!type) {
+        document.getElementById('typeError').style.display = 'block';
+        hasError = true;
+      }
+      
+      const director = document.getElementById('director').value.trim();
+      if (!director) {
+        document.getElementById('directorError').style.display = 'block';
+        hasError = true;
+      }
+      
+      if (genres.length === 0) {
+        document.getElementById('genreError').style.display = 'block';
+        hasError = true;
+      }
+      
+      const posterFile = document.getElementById('posterFile').files[0];
+      if (!posterFile) {
+        document.getElementById('posterError').style.display = 'block';
+        hasError = true;
+      }
+      
+      if (type === 'movie') {
+        const videoFile = document.getElementById('videoFile').files[0];
+        if (!videoFile) {
+          document.getElementById('videoError').style.display = 'block';
+          hasError = true;
+        }
+      }
+      
+      if (type === 'series' && (seasons.length === 0 || !seasons.some(s => s.episodes.length > 0))) {
+        alert('סדרה חייבת להכיל לפחות פרק אחד');
+        hasError = true;
+      }
+      
+      if (hasError) {
+        const firstError = document.querySelector('.error-message[style*="block"]');
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+      
+      const submitBtn = document.getElementById('submitBtn');
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      submitBtn.disabled = true;
+      loadingSpinner.classList.add('active');
+      
+      try {
+        const formData = new FormData();
+        formData.append('poster', posterFile);
+        if (type === 'movie' && document.getElementById('videoFile').files[0]) {
+        formData.append('video', document.getElementById('videoFile').files[0]);
+        }
+        if (type === 'series') {
+        seasons.forEach((season, seasonIndex) => {
+            season.episodes.forEach((episode, episodeIndex) => {
+            if (episode.videoFile) {
+                formData.append(`episodeVideo_${seasonIndex}_${episodeIndex}`, episode.videoFile);
+                console.log(`Adding episode video: episodeVideo_${seasonIndex}_${episodeIndex}`, episode.videoFile.name);
+            }
+            });
+        });
+        }
+        formData.append('userId', userId);
+        const contentData = {
+          title: title,
+          type: type,
+          genre: genres,
+          director: director,
+          cast: cast,
+          releaseYear: parseInt(document.getElementById('releaseYear').value) || null,
+          description: document.getElementById('description').value.trim(),
+          likes: 0
+        };
+        
+        if (type === 'series') {
+          contentData.seasons = seasons;
+        }
+        formData.append('data', JSON.stringify(contentData));
+        const response = await fetch('http://localhost:5001/api/content', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+
+        if (response.ok) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          setTimeout(() => {
+            document.getElementById('successMessage').style.display = 'block';
+          }, 300);
+
+          document.getElementById('contentForm').reset();
+          genres = [];
+          cast = [];
+          seasons = [];
+          renderGenres();
+          renderCast();
+          renderSeasons();
+          handleTypeChange();
+          document.getElementById('posterPreview').textContent = '';
+          document.getElementById('videoPreview').textContent = '';
+          
+          setTimeout(() => {
+            document.getElementById('successMessage').style.display = 'none';
+          }, 5000);
+        } else {
+          const error = await response.json();
+          alert('שגיאה בהוספת התוכן: ' + (error.message || 'שגיאה לא ידועה'));
+        }
+      } catch (error) {
+        console.error('Error adding content:', error);
+        alert('שגיאה בהוספת התוכן. נסה שוב.');
+      } finally {
+        submitBtn.disabled = false;
+        loadingSpinner.classList.remove('active');
+      }
+    });
+  </script>
+</body>
+</html>

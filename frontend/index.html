@@ -159,7 +159,7 @@
             localStorage.setItem("userEmail", emailValue);
             localStorage.setItem("userId", data.userData.id);
             localStorage.setItem("userName", data.userData.name);
-            
+            localStorage.setItem("isAdmin", data.userData.isAdmin ? "true" : "false");
             // Store profiles if available
             if (data.userData.profiles) {
               localStorage.setItem("userProfiles", JSON.stringify(data.userData.profiles.map((p, idx) => ({
