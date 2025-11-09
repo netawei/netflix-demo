@@ -97,24 +97,99 @@
       padding: 16px;
       border-radius: 10px;
       width: 200px;
+      min-height: 520px;
       text-align: right;
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .item h3 {
+      margin: 8px 0 4px 0;
+      font-size: 16px;
+      color: #fff;
+      font-weight: bold;
+      line-height: 1.3;
+      min-height: 2.6em;
     }
     .item img {
       width: 100%;
+      height: 280px;
+      object-fit: cover;
       border-radius: 8px;
       margin-bottom: 8px;
       display: block;
     }
-    .item h2 {
-      margin: 0 0 8px 0;
-      font-size: 18px;
-      color: #e50914;
-    }
     .item p {
       margin: 4px 0;
       font-size: 14px;
+    }
+    .item-description {
+      font-size: 12px;
+      color: #b3b3b3;
+      margin: 8px 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-height: 3.6em;
+    }
+    .item-rating {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin: 6px 0;
+      font-size: 13px;
+    }
+    .rating-stars {
+      color: #fbbf24;
+      font-size: 14px;
+    }
+    .rating-value {
+      color: #fff;
+      font-weight: bold;
+    }
+    .rating-label {
+      color: #b3b3b3;
+      font-size: 12px;
+    }
+    .item-director {
+      font-size: 12px;
+      color: #b3b3b3;
+      margin: 4px 0;
+    }
+    .item-director strong {
+      color: #fff;
+    }
+    .item-cast {
+      font-size: 11px;
+      color: #b3b3b3;
+      margin: 4px 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-cast strong {
+      color: #fff;
+    }
+    .item-genre {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 6px 0;
+    }
+    .genre-tag {
+      background: rgba(229, 9, 20, 0.2);
+      color: #e50914;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      border: 1px solid rgba(229, 9, 20, 0.3);
     }
     .like-btn {
       display: inline-flex;
@@ -129,6 +204,7 @@
       border: none;
       transition: background 0.2s, color 0.2s;
       position: relative;
+      margin-top: auto;
     }
     .like-btn.liked {
       background: #e50914;
@@ -232,9 +308,13 @@
             id: String(content._id), // Ensure ID is always a string
             name: content.title,
             year: content.releaseYear,
-            likes: content.likes,
+            likes: content.likes || 0,
             img: content.posterUrl,
-            genre: content.genre,
+            genre: content.genre || [],
+            director: content.director || '',
+            cast: content.cast || [],
+            description: content.description || '',
+            rating: content.rating || null,
             updatedAt: isNaN(timeMs) ? 0 : timeMs // if updatedAt doesnt exists, treat as very old content
           };
         });
@@ -284,6 +364,40 @@
         const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
         return Object.keys(storedLikes).filter(key => storedLikes[key].liked);
       }
+    }
+
+    // Helper function to format movie metadata
+    function formatMovieMetadata(item) {
+      const ratingDisplay = item.rating && item.rating !== -1 
+        ? `<div class="item-rating">
+             <span class="rating-value">${parseFloat(item.rating).toFixed(1)}</span>
+             <span class="rating-stars">⭐</span>
+           </div>`
+        : '';
+      
+      const descriptionDisplay = item.description 
+        ? `<p class="item-description" title="${item.description}">${item.description}</p>`
+        : '';
+      
+      const directorDisplay = item.director 
+        ? `<p class="item-director"><strong>במאי:</strong> ${item.director}</p>`
+        : '';
+      
+      const castDisplay = item.cast && item.cast.length > 0
+        ? `<p class="item-cast"><strong>שחקנים:</strong> ${item.cast.slice(0, 3).join(', ')}${item.cast.length > 3 ? '...' : ''}</p>`
+        : '';
+      
+      const genreDisplay = item.genre && item.genre.length > 0
+        ? `<div class="item-genre">${item.genre.slice(0, 3).map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>`
+        : '';
+      
+      return {
+        ratingDisplay,
+        descriptionDisplay,
+        directorDisplay,
+        castDisplay,
+        genreDisplay
+      };
     }
 
     function renderCatalog(items) {
@@ -342,10 +456,16 @@
 
         const div = document.createElement("div");
         div.classList.add("item");
+        const metadata = formatMovieMetadata(item);
         div.innerHTML = `
           <img src="${item.img}" alt="${item.name}">
           <h3>${item.name}</h3>
+          ${metadata.ratingDisplay}
+          ${metadata.genreDisplay}
           <p><strong>שנה:</strong> ${item.year}</p>
+          ${metadata.directorDisplay}
+          ${metadata.castDisplay}
+          ${metadata.descriptionDisplay}
           <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
             <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
@@ -496,10 +616,16 @@
 
           const div = document.createElement("div");
           div.classList.add("item");
+          const metadata = formatMovieMetadata(item);
           div.innerHTML = `
             <img src="${item.img}" alt="${item.name}">
             <h3>${item.name}</h3>
+            ${metadata.ratingDisplay}
+            ${metadata.genreDisplay}
             <p><strong>שנה:</strong> ${item.year}</p>
+            ${metadata.directorDisplay}
+            ${metadata.castDisplay}
+            ${metadata.descriptionDisplay}
             <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
             <button class="like-btn ${item.liked ? 'liked' : ''}">
               <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
@@ -641,10 +767,16 @@
 
     const div = document.createElement("div");
     div.classList.add("item");
+    const metadata = formatMovieMetadata(item);
     div.innerHTML = `
       <img src="${item.img}" alt="${item.name}">
       <h3>${item.name}</h3>
+      ${metadata.ratingDisplay}
+      ${metadata.genreDisplay}
       <p><strong>שנה:</strong> ${item.year}</p>
+      ${metadata.directorDisplay}
+      ${metadata.castDisplay}
+      ${metadata.descriptionDisplay}
       <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
       <button class="like-btn ${item.liked ? 'liked' : ''}">
         <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק

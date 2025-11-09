@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const session = require("express-session");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const path = require("path");
 const { connectDB } = require("./config/db");
 
 const userRoutes = require("./routes/userRoutes");
@@ -59,6 +60,14 @@ app.use(
 app.use("/api/users", userRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/watchHistory", watchHistoryRoutes);
+
+// Serve static files from frontend directory
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Serve index.html for root route
+app.get('/', (req, res) => {
+	res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
 
 // Server
 const PORT = process.env.PORT || 5001;
