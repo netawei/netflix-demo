@@ -41,7 +41,7 @@
       color: #aaa;
       cursor: pointer;
       flex-shrink: 0;
-      position: relative; /* NEW: For positioning delete button */
+      position: relative;
     }
     .avatar img {
       width: 150px;
@@ -103,7 +103,6 @@
       font-weight: bold;
       font-size: 17px;
     }
-    /* Modal Styles */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -187,7 +186,6 @@
       margin-top: -10px;
       margin-bottom: 10px;
     }
-    /* NEW STYLES FOR MANAGE MODE */
     .profile-name-input {
       border: none;
       border-bottom: 1px solid #fff;
@@ -202,11 +200,9 @@
       width: 150px;
       display: none;
     }
-    /* NEW: Style for error state in name input */
     .profile-name-input.error {
       border-bottom-color: #ff6b6b;
     }
-    /* NEW: Inline error message style */
     .profile-name-error {
       color: #ff6b6b;
       font-size: 12px;
@@ -237,7 +233,6 @@
     .avatar-option.selected {
       border-color: #e50914;
     }
-    /* NEW: Delete button styles */
     .delete-profile-btn {
       position: absolute;
       top: -5px;
@@ -263,7 +258,6 @@
     .avatar.manage-mode .delete-profile-btn {
       display: flex;
     }
-    /* NEW: Confirm delete modal styles */
     .modal-content.delete-confirm {
       text-align: center;
     }
@@ -300,7 +294,6 @@
   </style>
 </head>
 <body>
-  <!-- Modal for adding new profile -->
   <div class="modal-overlay" id="profileModal">
     <div class="modal-content">
       <h2>יצירת פרופיל חדש</h2>
@@ -310,7 +303,6 @@
           <input type="text" class="modal-input" id="profileNameInput" placeholder="הזן שם פרופיל" required>
           <div class="modal-error" id="profileError"></div>
         </div>
-        <!-- NEW: Avatar selection for create profile -->
         <div class="modal-field">
           <label class="modal-label">בחר אווטאר</label>
           <div class="avatar-selector" id="createAvatarSelector"></div>
@@ -323,7 +315,6 @@
     </div>
   </div>
 
-  <!-- NEW: Modal for editing avatar -->
   <div class="modal-overlay" id="editAvatarModal">
     <div class="modal-content">
       <h2>שינוי אווטאר</h2>
@@ -338,7 +329,6 @@
     </div>
   </div>
 
-  <!-- NEW: Modal for confirming delete -->
   <div class="modal-overlay" id="deleteConfirmModal">
     <div class="modal-content delete-confirm">
       <h2>מחיקת פרופיל</h2>
@@ -364,55 +354,47 @@
     
     let currentProfiles = [];
     let canAddProfile = true;
-    
-    // NEW: Manage mode variables
     let isManageMode = false;
     let selectedAvatar = null;
     let editingProfile = null;
     let availableAvatars = [];
-    let profileToDelete = null; // NEW: Track profile to delete
+    let profileToDelete = null;
 
-    // Check if user is logged in
     const userId = localStorage.getItem("userId");
     if (!userId) {
       alert("אנא התחבר תחילה");
       window.location.href = "index.html";
     }
 
-    // NEW: Helper to check if avatar is URL
     function isAvatarUrl(avatar) {
       return avatar && (avatar.startsWith('http://') || avatar.startsWith('https://'));
     }
 
-    // NEW: Load available avatars from directory
     async function loadAvailableAvatars() {
-
       availableAvatars = [];
-        for (let i = 1; i <= 20; i++) {
-          const avatarPath = `images/avatars/avatar${i}.png`;
-          try {
-            const img = new Image();
-            await new Promise((resolve, reject) => {
-              img.onload = resolve;
-              img.onerror = reject;
-              img.src = avatarPath;
-            });
-            availableAvatars.push(avatarPath);
-          } catch {
-            break;
-          }
+      for (let i = 1; i <= 20; i++) {
+        const avatarPath = `images/avatars/avatar${i}.png`;
+        try {
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = avatarPath;
+          });
+          availableAvatars.push(avatarPath);
+        } catch {
+          break;
         }
+      }
       return availableAvatars;
     }
 
-    // NEW: Toggle manage mode
     document.getElementById('manageButton').addEventListener('click', function() {
       isManageMode = !isManageMode;
       this.textContent = isManageMode ? 'סיום ניהול' : 'נהל פרופילים';
       renderProfiles();
     });
     
-    // טעינת פרופילים מהשרת
     async function loadProfiles() {
       try {
         const response = await fetch(`${API_BASE_URL}/${userId}/profiles`, {
@@ -428,7 +410,6 @@
         currentProfiles = data.profiles || [];
         canAddProfile = data.canAddProfile !== false;
         
-        // Update localStorage for compatibility
         const profilesForLocalStorage = currentProfiles.map((p, idx) => ({
           id: idx + 1,
           name: p.name,
@@ -439,7 +420,6 @@
         return currentProfiles;
       } catch (error) {
         console.error('Error loading profiles:', error);
-        // Fallback to localStorage if API fails
         const storedProfiles = localStorage.getItem("userProfiles");
         if (storedProfiles) {
           currentProfiles = JSON.parse(storedProfiles);
@@ -450,7 +430,6 @@
       }
     }
 
-    // Modal functions
     async function openProfileModal() {
       if (!canAddProfile) {
         alert("לא ניתן להוסיף יותר מ-5 פרופילים");
@@ -464,7 +443,6 @@
       error.textContent = "";
       input.focus();
       
-      // NEW: Load and display avatars for selection
       await loadAvailableAvatars();
       const selector = document.getElementById('createAvatarSelector');
       selector.innerHTML = '';
@@ -491,9 +469,8 @@
       modal.classList.remove("show");
     }
 
-    // NEW: Edit avatar modal functions
-    async function openEditAvatarModal(profile) {
-      editingProfile = profile;
+    async function openEditAvatarModal(profileIndex) {
+      editingProfile = currentProfiles[profileIndex];
       const modal = document.getElementById("editAvatarModal");
       modal.classList.add("show");
       
@@ -521,12 +498,11 @@
       editingProfile = null;
     }
 
-    // NEW: Delete profile modal functions
-    function openDeleteConfirmModal(profile) {
-      profileToDelete = profile;
+    function openDeleteConfirmModal(profileIndex) {
+      profileToDelete = currentProfiles[profileIndex];
       const modal = document.getElementById("deleteConfirmModal");
       const message = document.getElementById("deleteConfirmMessage");
-      message.textContent = `האם אתה בטוח שברצונך למחוק את הפרופיל "${profile.name}"? פעולה זו אינה ניתנת לביטול.`;
+      message.textContent = `האם אתה בטוח שברצונך למחוק את הפרופיל "${profileToDelete.name}"? פעולה זו אינה ניתנת לביטול.`;
       modal.classList.add("show");
     }
 
@@ -536,18 +512,23 @@
       profileToDelete = null;
     }
 
-    // NEW: Confirm and execute delete
     async function confirmDelete() {
       if (!profileToDelete) return;
       
+      const profileId = profileToDelete._id || profileToDelete.id;
+      console.log('Profile to delete:', profileToDelete);
+      console.log('Profile ID being sent:', profileId);
+      console.log('Full URL:', `${API_BASE_URL}/${userId}/profiles/${profileId}`);
+      
       try {
-        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileToDelete._id}`, {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
           method: 'DELETE',
           credentials: 'include'
         });
 
         if (response.ok) {
           closeDeleteConfirmModal();
+          profileToDelete = null;
           await renderProfiles();
         } else {
           const error = await response.json();
@@ -559,12 +540,13 @@
       }
     }
 
-    // NEW: Save avatar
     async function saveAvatar() {
       if (!selectedAvatar || !editingProfile) return;
       
+      const profileId = editingProfile._id || editingProfile.id;
+      
       try {
-        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${editingProfile._id}`, {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -582,29 +564,26 @@
       }
     }
 
-    // MODIFIED: Save profile name with duplicate check
-    async function saveProfileName(profile, newName, inputElement, errorElement, nameP) {
-      // Check if name already exists in other profiles
+    async function saveProfileName(profileIndex, newName, inputElement, errorElement, nameP) {
+      const profile = currentProfiles[profileIndex];
       const existingProfile = currentProfiles.find(
-        p => p._id !== profile._id && p.name && p.name.toLowerCase() === newName.toLowerCase()
+        (p, idx) => idx !== profileIndex && p.name && p.name.toLowerCase() === newName.toLowerCase()
       );
       
       if (existingProfile) {
-        // Show error state
         inputElement.classList.add('error');
         errorElement.textContent = "שם זה כבר קיים";
         errorElement.style.display = 'block';
-        
-        // Don't hide the input, let user fix it
         return;
       }
       
-      // Clear any existing errors
       inputElement.classList.remove('error');
       errorElement.style.display = 'none';
       
+      const profileId = profile._id || profile.id;
+      
       try {
-        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profile._id}`, {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -629,40 +608,34 @@
       }
     }
 
-    // Close modal when clicking outside
     document.getElementById("profileModal").addEventListener("click", function(e) {
       if (e.target === this) {
         closeProfileModal();
       }
     });
     
-    // NEW: Close edit avatar modal when clicking outside
     document.getElementById("editAvatarModal").addEventListener("click", function(e) {
       if (e.target === this) {
         closeEditAvatarModal();
       }
     });
 
-    // NEW: Close delete confirm modal when clicking outside
     document.getElementById("deleteConfirmModal").addEventListener("click", function(e) {
       if (e.target === this) {
         closeDeleteConfirmModal();
       }
     });
 
-    // Close modal with ESC key
     document.addEventListener("keydown", function(e) {
       if (e.key === "Escape") {
         const modal = document.getElementById("profileModal");
         if (modal.classList.contains("show")) {
           closeProfileModal();
         }
-        // NEW: Also close edit avatar modal
         const editModal = document.getElementById("editAvatarModal");
         if (editModal.classList.contains("show")) {
           closeEditAvatarModal();
         }
-        // NEW: Also close delete confirm modal
         const deleteModal = document.getElementById("deleteConfirmModal");
         if (deleteModal.classList.contains("show")) {
           closeDeleteConfirmModal();
@@ -670,7 +643,6 @@
       }
     });
 
-    // Handle form submission
     document.getElementById("profileForm").addEventListener("submit", async function(e) {
       e.preventDefault();
       const profileNameInput = document.getElementById("profileNameInput");
@@ -687,7 +659,6 @@
         return;
       }
 
-      // Check if profile name already exists (case-insensitive)
       const existingProfile = currentProfiles.find(
         profile => profile.name && profile.name.toLowerCase() === profileName.toLowerCase()
       );
@@ -699,7 +670,6 @@
 
       profileError.textContent = "";
 
-      // MODIFIED: Use selected avatar or random default
       const avatarToUse = selectedAvatar || "https://picsum.photos/seed/" + Date.now() + "/200";
 
       try {
@@ -723,7 +693,6 @@
           return;
         }
 
-        // Close modal and reload profiles after successful creation
         closeProfileModal();
         await renderProfiles();
       } catch (error) {
@@ -732,122 +701,110 @@
       }
     });
 
-    // יצירת פרופיל חדש
     function createNewProfile() {
       openProfileModal();
     }
 
-    // הצגת פרופילים בעמוד
     async function renderProfiles() {
       await loadProfiles();
       profilesContainer.innerHTML = "";
 
-      // יצירת פרופילים קיימים - FIX: Use direct index to avoid closure issues
-      currentProfiles.forEach((originalProfile, index) => {
+      currentProfiles.forEach((profile, index) => {
         const li = document.createElement("li");
         li.classList.add("avatar");
+        
         if (isManageMode) {
           li.classList.add("manage-mode");
         }
         
-        // Get avatar src handling URL or local path
-        const avatarSrc = originalProfile.avatar || "https://picsum.photos/seed/" + (index + 1) + "/200";
+        const avatarSrc = profile.avatar || "https://picsum.photos/seed/" + (index + 1) + "/200";
         
         li.innerHTML = `
-          <img src="${avatarSrc}" alt="${originalProfile.name}">
-          <p>${originalProfile.name}</p>
-          <input type="text" class="profile-name-input" value="${originalProfile.name}">
+          <img src="${avatarSrc}" alt="${profile.name}" data-index="${index}">
+          <p data-index="${index}">${profile.name}</p>
+          <input type="text" class="profile-name-input" value="${profile.name}" data-index="${index}">
           <div class="profile-name-error"></div>
-          <button class="delete-profile-btn" title="מחק פרופיל">×</button>
+          <button class="delete-profile-btn" data-index="${index}" title="מחק פרופיל">×</button>
         `;
         
         const img = li.querySelector('img');
         const nameP = li.querySelector('p');
         const nameInput = li.querySelector('.profile-name-input');
-        const errorDiv = li.querySelector('.profile-name-error'); // NEW: Error message div
+        const errorDiv = li.querySelector('.profile-name-error');
         const deleteBtn = li.querySelector('.delete-profile-btn');
         
-        // FIX: Create a closure with the correct profile reference
-        (function(currentProfile) {
-          if (isManageMode) {
-            // In manage mode: click image to edit avatar
-            img.addEventListener('click', (e) => {
-              e.stopPropagation();
-              openEditAvatarModal(currentProfile);
-            });
-            
-            // Click name to edit
-            nameP.addEventListener('click', (e) => {
-              e.stopPropagation();
-              nameP.style.display = 'none';
-              nameInput.style.display = 'block';
-              errorDiv.style.display = 'none'; // Hide any previous errors
-              nameInput.focus();
-              nameInput.select();
-            });
-            
-            // MODIFIED: Save name on blur or enter with validation
-            nameInput.addEventListener('blur', function() {
-              const newName = this.value.trim();
-              if (!newName) {
-                // If empty, revert to original
-                this.value = currentProfile.name;
-                this.style.display = 'none';
-                nameP.style.display = 'block';
-                errorDiv.style.display = 'none';
-              } else if (newName !== currentProfile.name) {
-                saveProfileName(currentProfile, newName, this, errorDiv, nameP);
-              } else {
-                // Same name, just close
-                this.style.display = 'none';
-                nameP.style.display = 'block';
-                errorDiv.style.display = 'none';
-              }
-            });
-            
-            nameInput.addEventListener('keydown', function(e) {
-              if (e.key === 'Enter') {
-                this.blur();
-              } else if (e.key === 'Escape') {
-                // Cancel editing on ESC
-                this.value = currentProfile.name;
-                this.style.display = 'none';
-                nameP.style.display = 'block';
-                errorDiv.style.display = 'none';
-                this.classList.remove('error');
-              }
-            });
-
-            // Clear error when typing
-            nameInput.addEventListener('input', function() {
-              this.classList.remove('error');
+        if (isManageMode) {
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(e.target.dataset.index);
+            openEditAvatarModal(idx);
+          });
+          
+          nameP.addEventListener('click', (e) => {
+            e.stopPropagation();
+            nameP.style.display = 'none';
+            nameInput.style.display = 'block';
+            errorDiv.style.display = 'none';
+            nameInput.focus();
+            nameInput.select();
+          });
+          
+          nameInput.addEventListener('blur', function(e) {
+            const idx = parseInt(e.target.dataset.index);
+            const newName = this.value.trim();
+            if (!newName) {
+              this.value = currentProfiles[idx].name;
+              this.style.display = 'none';
+              nameP.style.display = 'block';
               errorDiv.style.display = 'none';
-            });
+            } else if (newName !== currentProfiles[idx].name) {
+              saveProfileName(idx, newName, this, errorDiv, nameP);
+            } else {
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+            }
+          });
+          
+          nameInput.addEventListener('keydown', function(e) {
+            const idx = parseInt(this.dataset.index);
+            if (e.key === 'Enter') {
+              this.blur();
+            } else if (e.key === 'Escape') {
+              this.value = currentProfiles[idx].name;
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+              this.classList.remove('error');
+            }
+          });
 
-            // FIX: Delete button with correct profile reference
-            deleteBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              openDeleteConfirmModal(currentProfile);
-            });
-          } else {
-            // Normal mode: click to navigate
-            li.addEventListener("click", () => {
-              localStorage.setItem("activeProfile", JSON.stringify({
-                id: index + 1,
-                name: currentProfile.name,
-                img: avatarSrc,
-                userId: userId,
-                originalProfile: currentProfile
-              }));
-              window.location.href = "main-page.html";
-            });
-          }
-        })(originalProfile); // Pass the current profile to the closure
+          nameInput.addEventListener('input', function() {
+            this.classList.remove('error');
+            errorDiv.style.display = 'none';
+          });
+
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(deleteBtn.dataset.index);
+            openDeleteConfirmModal(idx);
+          });
+        } else {
+          li.addEventListener("click", () => {
+            localStorage.setItem("activeProfile", JSON.stringify({
+              id: index + 1,
+              name: profile.name,
+              img: avatarSrc,
+              userId: userId,
+              originalProfile: profile
+            }));
+            window.location.href = "main-page.html";
+          });
+        }
         
         profilesContainer.appendChild(li);
       });
 
-      // הוספת כפתור יצירת פרופיל חדש רק אם יש פחות מ-5 פרופילים
       if (canAddProfile && currentProfiles.length < 5 && !isManageMode) {
         const addLi = document.createElement("li");
         addLi.classList.add("avatar", "add-profile");
@@ -861,7 +818,9 @@
         profilesContainer.appendChild(addLi);
       }
     }
+    
     renderProfiles();
+    
     const checkAdminStatus = () => {
       const isAdmin = localStorage.getItem("isAdmin") === "true";
       console.log('isAdmin from localStorage:', isAdmin);
