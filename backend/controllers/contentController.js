@@ -87,6 +87,33 @@ exports.getAllContent = async (req, res) => {
     }
 };
 
+exports.getContentCast = async (req, res) => {
+    try {
+        const content = await Content.findById(req.params.id).select('title cast');
+        if (!content) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+        res.json({
+            title: content.title,
+            cast: content.cast || []
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getContentById = async (req, res) => {
+    try {
+        const content = await Content.findById(req.params.id);
+        if (!content) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+        res.json(content);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 
 exports.searchContent = async (req, res) => {
     const query = req.query.q;

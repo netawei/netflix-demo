@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>צפייה - Netflix Demo</title>
+  <style>
+    :root {
+      --bg: #000;
+      --card: rgba(0, 0, 0, 0.85);
+      --border: rgba(255, 255, 255, 0.1);
+      --primary: #e50914;
+      --text: #f8f8f8;
+      --muted: #b3b3b3;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top, #1f1f1f, #000);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      background: rgba(0, 0, 0, 0.7);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(6px);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    .header-actions button {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 999px;
+      color: var(--text);
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .header-actions button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-1px);
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+      padding: 24px;
+    }
+    .player-container {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .content-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .content-header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    .metadata {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .metadata span {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+    .description {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    video {
+      width: 100%;
+      max-height: 60vh;
+      background: #000;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .status-bar strong {
+      color: var(--text);
+    }
+    .status-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .status-actions button {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .status-actions .btn-primary {
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: var(--text);
+    }
+    .status-actions .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: var(--text);
+    }
+    .status-actions button:hover {
+      transform: translateY(-1px);
+      opacity: 0.92;
+    }
+    .error-banner {
+      background: rgba(229, 9, 20, 0.15);
+      border: 1px solid rgba(229, 9, 20, 0.4);
+      color: #ff747d;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    @media (max-width: 768px) {
+      main {
+        padding: 16px;
+      }
+      .player-container {
+        padding: 16px;
+      }
+      .content-header h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Netflix</div>
+    <div class="header-actions">
+      <button id="backBtn">חזרה לקטלוג</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="player-container">
+      <div class="content-header">
+        <h1 id="contentTitle">...</h1>
+        <div class="metadata" id="contentMeta"></div>
+      </div>
+      <p class="description" id="contentDescription"></p>
+      <div id="errorBanner" class="error-banner" style="display:none;"></div>
+      <video id="videoPlayer" controls preload="metadata">
+        Your browser does not support the video tag.
+      </video>
+      <div class="status-bar">
+        <div>
+          <strong>סטטוס:</strong> <span id="statusText">מכין את הצפייה...</span>
+        </div>
+        <div class="status-actions">
+          <button class="btn-secondary" id="rewind10Btn">↺ חזרה 10 שניות</button>
+          <button class="btn-secondary" id="forward10Btn">קדימה 10 שניות ↻</button>
+          <button class="btn-secondary" id="restartBtn">התחל מהתחלה</button>
+          <button class="btn-primary" id="resumeBtn">המשך מנקודת העצירה</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const contentId = params.get('contentId');
+    const restartParam = params.get('restart') === '1';
+    const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
+    const userId = activeProfile?.userId || localStorage.getItem("userId");
+    const statusText = document.getElementById('statusText');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const rewindBtn = document.getElementById('rewind10Btn');
+    const forwardBtn = document.getElementById('forward10Btn');
+    const restartBtn = document.getElementById('restartBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const backBtn = document.getElementById('backBtn');
+    const errorBanner = document.getElementById('errorBanner');
+    const WATCH_HISTORY_BASE = 'http://localhost:5001/api/watchHistory';
+
+    if (!contentId) {
+      alert('לא נמצא תוכן לצפייה');
+      window.location.href = 'main-page.html';
+    }
+
+    if (!userId) {
+      alert('אנא התחבר תחילה');
+      window.location.href = 'index.html';
+    }
+
+    let currentProgress = 0;
+    let progressInterval = null;
+    let contentDuration = 0;
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'main-page.html';
+    });
+
+    rewindBtn.addEventListener('click', () => {
+      seekRelative(-10);
+    });
+
+    forwardBtn.addEventListener('click', () => {
+      seekRelative(10);
+    });
+
+    restartBtn.addEventListener('click', () => {
+      if (!videoPlayer.duration || Number.isNaN(videoPlayer.duration)) {
+        videoPlayer.currentTime = 0;
+      } else {
+        videoPlayer.currentTime = 0;
+      }
+      statusText.textContent = 'החזרת לנקודת ההתחלה';
+      sendProgressUpdate(0);
+    });
+
+    resumeBtn.addEventListener('click', () => {
+      if (currentProgress > 0 && currentProgress < videoPlayer.duration) {
+        videoPlayer.currentTime = currentProgress;
+        statusText.textContent = 'המשך מהנקודה האחרונה';
+        videoPlayer.play();
+      }
+    });
+
+    async function loadContentDetails() {
+      try {
+        const response = await fetch(`http://localhost:5001/api/content/${contentId}`);
+        if (!response.ok) {
+          throw new Error('לא הצלחנו לטעון את פרטי התוכן');
+        }
+        const content = await response.json();
+        document.getElementById('contentTitle').textContent = content.title || 'ללא שם';
+        renderMetadata(content);
+        document.getElementById('contentDescription').textContent = content.description || 'אין תיאור זמין לתוכן זה.';
+
+        if (!content.videoUrl) {
+          throw new Error('לא נמצא קובץ וידאו עבור תוכן זה');
+        }
+        videoPlayer.src = content.videoUrl;
+      } catch (error) {
+        console.error('Content load error:', error);
+        showError(error.message || 'אירעה שגיאה בטעינת התוכן');
+      }
+    }
+
+    function renderMetadata(content) {
+      const meta = [];
+      if (content.releaseYear) meta.push(`<span>${content.releaseYear}</span>`);
+      if (content.genre && content.genre.length) {
+        meta.push(...content.genre.slice(0, 4).map(g => `<span>${g}</span>`));
+      }
+      if (content.director) meta.push(`<span>במאי: ${content.director}</span>`);
+      if (content.rating && content.rating !== -1) meta.push(`<span>IMDB ${parseFloat(content.rating).toFixed(1)}</span>`);
+      document.getElementById('contentMeta').innerHTML = meta.join('');
+    }
+
+    function showError(message) {
+      errorBanner.textContent = message;
+      errorBanner.style.display = 'block';
+      statusText.textContent = 'שגיאה בטעינת התוכן';
+      videoPlayer.style.display = 'none';
+      restartBtn.disabled = true;
+      resumeBtn.disabled = true;
+    }
+
+    async function loadWatchProgress() {
+      try {
+        const response = await fetch(`${WATCH_HISTORY_BASE}/user/${userId}`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('לא ניתן לטעון היסטוריית צפייה');
+        }
+        const histories = await response.json();
+        const entry = histories.find(h => {
+          const id = h.content?._id || h.content;
+          return String(id) === String(contentId);
+        });
+        currentProgress = entry?.progress || 0;
+        updateResumeButtonState();
+      } catch (error) {
+        console.error('Watch history load error:', error);
+        currentProgress = 0;
+        updateResumeButtonState();
+      }
+    }
+
+    async function initPlayer() {
+      await loadWatchProgress();
+      await loadContentDetails();
+
+      videoPlayer.addEventListener('loadedmetadata', () => {
+        contentDuration = videoPlayer.duration;
+        if (!restartParam && currentProgress > 0 && currentProgress < contentDuration) {
+          videoPlayer.currentTime = currentProgress;
+          statusText.textContent = `התקדמות שמורה: ${formatPlaybackTime(currentProgress)}`;
+        } else {
+          if (restartParam) {
+            currentProgress = 0;
+            updateResumeButtonState();
+          }
+          statusText.textContent = 'מוכן להתחיל לצפות';
+        }
+      });
+
+      videoPlayer.addEventListener('play', () => {
+        statusText.textContent = 'צפייה פעילה';
+        startProgressInterval();
+      });
+
+      videoPlayer.addEventListener('pause', () => {
+        statusText.textContent = 'מושהה';
+        sendProgressUpdate();
+        clearProgressInterval();
+      });
+
+      videoPlayer.addEventListener('ended', () => {
+        statusText.textContent = 'הווידאו הסתיים';
+        sendProgressUpdate(videoPlayer.duration);
+        clearProgressInterval();
+      });
+
+      window.addEventListener('beforeunload', () => {
+        sendProgressUpdate();
+        clearProgressInterval();
+      });
+    }
+
+    function startProgressInterval() {
+      clearProgressInterval();
+      progressInterval = setInterval(() => {
+        sendProgressUpdate();
+      }, 10000);
+    }
+
+    function clearProgressInterval() {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+    }
+
+    async function sendProgressUpdate(forcedValue) {
+      if (!userId || !contentId) return;
+      const progressValue = typeof forcedValue === 'number'
+        ? forcedValue
+        : Math.floor(videoPlayer.currentTime || 0);
+
+      currentProgress = progressValue;
+      updateResumeButtonState();
+
+      try {
+        await fetch(`${WATCH_HISTORY_BASE}/progress`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            user: userId,
+            content: contentId,
+            progress: progressValue
+          })
+        });
+        statusText.textContent = `התקדמות שמורה (${formatPlaybackTime(progressValue)})`;
+      } catch (error) {
+        console.error('Failed to update progress:', error);
+      }
+    }
+
+    function formatPlaybackTime(seconds) {
+      const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${minutes}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function seekRelative(deltaSeconds) {
+      if (!videoPlayer.duration || Number.isNaN(videoPlayer.duration)) {
+        return;
+      }
+      const newTime = Math.min(
+        Math.max(0, (videoPlayer.currentTime || 0) + deltaSeconds),
+        videoPlayer.duration
+      );
+      videoPlayer.currentTime = newTime;
+      statusText.textContent = deltaSeconds > 0
+        ? `דילגת קדימה ${Math.abs(deltaSeconds)} שניות`
+        : `דילגת אחורה ${Math.abs(deltaSeconds)} שניות`;
+      sendProgressUpdate();
+    }
+
+    function updateResumeButtonState() {
+      if (currentProgress > 0) {
+        resumeBtn.disabled = false;
+        resumeBtn.textContent = 'המשך מנקודת העצירה';
+      } else {
+        resumeBtn.disabled = true;
+        resumeBtn.textContent = 'אין נקודה שמורה';
+      }
+    }
+
+    initPlayer();
+  </script>
+</body>
+</html>
+

@@ -129,6 +129,7 @@
       color: #b3b3b3;
       margin: 8px 0;
       line-height: 1.4;
+      line-clamp: 3;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -168,6 +169,7 @@
       color: #b3b3b3;
       margin: 4px 0;
       line-height: 1.4;
+      line-clamp: 2;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -176,6 +178,16 @@
     }
     .item-cast strong {
       color: #fff;
+    }
+    .cast-link {
+      color: #f0f0f0;
+      text-decoration: underline;
+      text-decoration-color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+    }
+    .cast-link:hover {
+      color: #fbbf24;
+      text-decoration-color: #fbbf24;
     }
     .item-genre {
       display: flex;
@@ -204,11 +216,75 @@
       border: none;
       transition: background 0.2s, color 0.2s;
       position: relative;
-      margin-top: auto;
     }
     .like-btn.liked {
       background: #e50914;
       color: #fff;
+    }
+    .item-watch-block {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .item-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .item-actions button {
+      width: 100%;
+    }
+    .btn-watch,
+    .btn-watch-secondary {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .btn-watch {
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: #fff;
+    }
+    .btn-watch:hover {
+      transform: scale(1.02);
+      opacity: 0.95;
+    }
+    .btn-watch-secondary {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    .btn-watch-secondary:hover {
+      transform: scale(1.02);
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .favorite-btn {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .favorite-btn:hover {
+      transform: scale(1.02);
+      opacity: 0.95;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .favorite-btn.favorited {
+      border-color: #fbbf24;
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.12);
+    }
+    .item-progress-text {
+      font-size: 11px;
+      color: #b3b3b3;
     }
     .heart {
       display: inline-block;
@@ -252,6 +328,7 @@
     <input type="text" id="searchInput" class="search-box" placeholder="חפש סרט או סדרה...">
     <br>
     <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
+    <div class="catalog" id="favoritesCatalog"></div>
     <div class="catalog" id="newestCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
@@ -287,10 +364,12 @@
     const userId = activeProfile?.userId || localStorage.getItem("userId");
     const profileName = activeProfile?.name;
     let likedContentIds = []; // Array of content IDs that are liked by this profile
+    let favoriteContentIds = []; // Array of content IDs that are favorited by this profile
     
 
     const catalogDiv = document.getElementById("catalog");
     const newestDiv = document.getElementById("newestCatalog");
+    const favoritesDiv = document.getElementById("favoritesCatalog");
     const searchInput = document.getElementById("searchInput");
     const sortBtn = document.getElementById("sortBtn");
   
@@ -298,14 +377,55 @@
     let groupedCatalog = {};
     let isSorted = false;
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
-  
-    fetch("http://localhost:5001/api/content")
-      .then(res => res.json())
-      .then(data => {
-        catalog = data.map(content => {
+    const WATCH_HISTORY_BASE = 'http://localhost:5001/api/watchHistory';
+    let watchHistoryMap = {};
+
+    async function loadWatchHistory() {
+      if (!userId) {
+        watchHistoryMap = {};
+        return {};
+      }
+      try {
+        const response = await fetch(`${WATCH_HISTORY_BASE}/user/${userId}`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('Failed to load watch history');
+        }
+        const histories = await response.json();
+        const map = {};
+        histories.forEach(entry => {
+          const contentId = entry.content?._id || entry.content;
+          if (contentId) {
+            map[String(contentId)] = {
+              progress: entry.progress || 0,
+              lastWatchedAt: entry.lastWatchedAt || null
+            };
+          }
+        });
+        watchHistoryMap = map;
+        return map;
+      } catch (error) {
+        console.error('Error loading watch history:', error);
+        watchHistoryMap = {};
+        return {};
+      }
+    }
+
+    async function initCatalog() {
+      try {
+        const [contentResponse, historyMap] = await Promise.all([
+          fetch("http://localhost:5001/api/content").then(res => res.json()),
+          loadWatchHistory()
+        ]);
+
+        catalog = contentResponse.map(content => {
           const timeMs = new Date(content.updatedAt).getTime();
+          const contentId = String(content._id);
+          const history = historyMap[contentId] || {};
           return {
-            id: String(content._id), // Ensure ID is always a string
+            id: contentId,
             name: content.title,
             year: content.releaseYear,
             likes: content.likes || 0,
@@ -315,19 +435,31 @@
             cast: content.cast || [],
             description: content.description || '',
             rating: content.rating || null,
-            updatedAt: isNaN(timeMs) ? 0 : timeMs // if updatedAt doesnt exists, treat as very old content
+            progress: history.progress || 0,
+            lastWatchedAt: history.lastWatchedAt || null,
+            updatedAt: isNaN(timeMs) ? 0 : timeMs
           };
         });
-        // After catalog is loaded, load liked content and render
-        loadLikedContent().then((loadedIds) => {
-          console.log('Loaded liked content IDs for profile:', profileName, 'IDs:', loadedIds);
-          renderCatalog(catalog);
-        }).catch(err => {
+
+        try {
+          await loadLikedContent();
+        } catch (err) {
           console.error('Error loading liked content:', err);
-          renderCatalog(catalog);
-        });
-      })
-      .catch(err => console.error("Fetch error:", err));
+        }
+
+        try {
+          await loadFavoriteContent();
+        } catch (err) {
+          console.error('Error loading favorite content:', err);
+        }
+
+        renderCatalog(catalog);
+      } catch (error) {
+        console.error('Error initializing catalog:', error);
+      }
+    }
+
+    initCatalog();
 
     // Load liked content from backend
     async function loadLikedContent() {
@@ -362,8 +494,192 @@
         console.error('Error loading liked content:', error);
         // Fallback to localStorage
         const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
-        return Object.keys(storedLikes).filter(key => storedLikes[key].liked);
+        const fallbackLikes = Object.keys(storedLikes).filter(key => storedLikes[key].liked);
+        likedContentIds = fallbackLikes.map(id => String(id));
+        return likedContentIds;
       }
+    }
+
+    async function loadFavoriteContent() {
+      const storageKey = `favorites_${userId || 'guest'}_${profileName || 'default'}`;
+
+      if (!userId || !profileName) {
+        const storedFavorites = JSON.parse(localStorage.getItem(storageKey)) || [];
+        favoriteContentIds = storedFavorites.map(id => String(id));
+        return favoriteContentIds;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profiles/favorites`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId: userId,
+            profileName: profileName
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load favorite content');
+        }
+
+        const data = await response.json();
+        favoriteContentIds = (data.favorites || []).map(id => String(id));
+        return favoriteContentIds;
+      } catch (error) {
+        console.error('Error loading favorite content:', error);
+        const storedFavorites = JSON.parse(localStorage.getItem(storageKey)) || [];
+        favoriteContentIds = storedFavorites.map(id => String(id));
+        return favoriteContentIds;
+      }
+    }
+
+    function formatPlaybackTime(seconds) {
+      const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${minutes}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function setupWatchButtons(container, item) {
+      const startBtn = container.querySelector('.btn-start-watch');
+      if (startBtn) {
+        startBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startWatch(item, true);
+        });
+      }
+      const continueBtn = container.querySelector('.btn-continue-watch');
+      if (continueBtn) {
+        continueBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startWatch(item, false);
+        });
+      }
+    }
+
+    function setupFavoriteButton(container, item) {
+      const favoriteBtn = container.querySelector('.favorite-btn');
+      if (!favoriteBtn) return;
+
+      const itemIdStr = String(item.id);
+      const storageKey = `favorites_${userId || 'guest'}_${profileName || 'default'}`;
+
+      const updateButtonState = (favorited) => {
+        if (favorited) {
+          favoriteBtn.classList.add('favorited');
+          favoriteBtn.textContent = '★ במועדפים';
+        } else {
+          favoriteBtn.classList.remove('favorited');
+          favoriteBtn.textContent = '☆ הוסף למועדפים';
+        }
+      };
+
+      updateButtonState(item.favorited);
+
+      favoriteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        favoriteBtn.disabled = true;
+
+        try {
+          if (userId && profileName) {
+            const response = await fetch(`${API_BASE_URL}/profiles/favorite`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                userId: userId,
+                profileName: profileName,
+                contentId: itemIdStr
+              })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+              throw new Error(errorData.message || 'Failed to toggle favorite');
+            }
+
+            const data = await response.json();
+            favoriteContentIds = (data.favorites || []).map(id => String(id));
+          } else {
+            let storedFavorites = JSON.parse(localStorage.getItem(storageKey)) || [];
+            storedFavorites = storedFavorites.map(id => String(id));
+            if (storedFavorites.includes(itemIdStr)) {
+              storedFavorites = storedFavorites.filter(id => id !== itemIdStr);
+            } else {
+              storedFavorites.push(itemIdStr);
+            }
+            favoriteContentIds = storedFavorites;
+            localStorage.setItem(storageKey, JSON.stringify(storedFavorites));
+          }
+
+          item.favorited = favoriteContentIds.includes(itemIdStr);
+          favoriteBtn.disabled = false;
+          renderCatalog(catalog);
+        } catch (error) {
+          console.error('Error toggling favorite:', error);
+          alert('שגיאה בעדכון מועדפים. נסה שוב.');
+          favoriteBtn.disabled = false;
+        }
+      });
+    }
+
+    function setupViewMoreCast(container, item) {
+      const viewMoreBtn = container.querySelector('.btn-view-more-cast');
+      if (!viewMoreBtn) return;
+
+      viewMoreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const params = new URLSearchParams();
+        params.append('contentId', item.id);
+        if (item.name) {
+          params.append('title', item.name);
+        }
+        window.location.href = `cast-list.html?${params.toString()}`;
+      });
+    }
+
+    async function startWatch(item, restart = false) {
+      if (!userId) {
+        alert("אנא התחבר תחילה כדי לצפות בתוכן");
+        return;
+      }
+      const progressToSave = restart ? 0 : (watchHistoryMap[item.id]?.progress || 0);
+      try {
+        await fetch(`${WATCH_HISTORY_BASE}/progress`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            user: userId,
+            content: item.id,
+            progress: progressToSave
+          })
+        });
+        watchHistoryMap[item.id] = {
+          progress: progressToSave,
+          lastWatchedAt: new Date().toISOString()
+        };
+      } catch (error) {
+        console.error('Error updating watch progress:', error);
+      }
+
+      const params = new URLSearchParams({ contentId: item.id });
+      if (restart) {
+        params.set('restart', '1');
+      }
+      window.location.href = `watch.html?${params.toString()}`;
     }
 
     // Helper function to format movie metadata
@@ -383,20 +699,60 @@
         ? `<p class="item-director"><strong>במאי:</strong> ${item.director}</p>`
         : '';
       
-      const castDisplay = item.cast && item.cast.length > 0
-        ? `<p class="item-cast"><strong>שחקנים:</strong> ${item.cast.slice(0, 3).join(', ')}${item.cast.length > 3 ? '...' : ''}</p>`
-        : '';
+      let castDisplay = '';
+      if (item.cast && item.cast.length > 0) {
+        const visibleActors = item.cast.slice(0, 3).map(actor => {
+          const encodedName = encodeURIComponent(actor.trim());
+          return `<a class="cast-link" href="https://en.wikipedia.org/wiki/${encodedName}" target="_blank" rel="noopener noreferrer">${actor}</a>`;
+        }).join(', ');
+
+        const viewMoreLink = item.cast.length > 3
+          ? ` <button class="btn-watch-secondary btn-view-more-cast" data-content="${item.id}" data-title="${encodeURIComponent(item.name)}">עוד...</button>`
+          : '';
+
+        castDisplay = `<p class="item-cast"><strong>שחקנים:</strong> ${visibleActors}${viewMoreLink}</p>`;
+      }
       
       const genreDisplay = item.genre && item.genre.length > 0
         ? `<div class="item-genre">${item.genre.slice(0, 3).map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>`
         : '';
+
+      const hasProgress = Number(item.progress) > 0;
+      const progressDisplay = hasProgress
+        ? `<p class="item-progress-text">נשמר בנקודת זמן ${formatPlaybackTime(item.progress)}</p>`
+        : '';
+
+      const favoriteButton = `
+        <button class="favorite-btn ${item.favorited ? 'favorited' : ''}" data-content="${item.id}">
+          ${item.favorited ? '★ במועדפים' : '☆ הוסף למועדפים'}
+        </button>
+      `;
+
+      const watchSection = `
+        <div class="item-watch-block">
+          <div class="item-actions">
+            <button class="btn-watch btn-start-watch" data-content="${item.id}">
+              ${hasProgress ? 'התחל מהתחלה' : 'התחל צפייה'}
+            </button>
+            ${hasProgress ? `<button class="btn-watch-secondary btn-continue-watch" data-content="${item.id}">המשך צפייה</button>` : ''}
+          </div>
+          ${progressDisplay}
+          ${favoriteButton}
+          <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+          <button class="like-btn ${item.liked ? 'liked' : ''}">
+            <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+          </button>
+        </div>
+      `;
       
       return {
         ratingDisplay,
         descriptionDisplay,
         directorDisplay,
         castDisplay,
-        genreDisplay
+        genreDisplay,
+        watchSection,
+        hasProgress
       };
     }
 
@@ -407,6 +763,7 @@
         // Convert both to strings for consistent comparison
         const itemIdStr = String(item.id);
         item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
+        item.favorited = favoriteContentIds.some(favId => String(favId) === itemIdStr);
       });
       
       // Get the 10 newest items
@@ -419,9 +776,155 @@
         })
         .slice(0, 10);
       
+      renderFavorites(items);
       renderNewest(newest);
       groupByGenre();
       renderGroupedCatalog();
+    }
+
+    function renderFavorites(items) {
+      if (!favoritesDiv) {
+        return;
+      }
+
+      const favorites = items.filter(item => item.favorited);
+      favoritesDiv.innerHTML = '';
+
+      if (favorites.length === 0) {
+        favoritesDiv.style.display = 'none';
+        return;
+      }
+
+      favoritesDiv.style.display = 'block';
+      const title = document.createElement("h2");
+      title.textContent = "המועדפים שלי";
+      title.style.textAlign = "center";
+      title.style.marginTop = "40px";
+      title.style.color = "#fbbf24";
+      title.style.fontSize = "28px";
+      title.style.fontWeight = "bold";
+
+      favoritesDiv.appendChild(title);
+      const grid = document.createElement("div");
+      grid.classList.add("catalog-grid");
+      grid.style.display = "flex";
+      grid.style.flexWrap = "wrap";
+      grid.style.gap = "20px";
+      grid.style.justifyContent = "flex-start";
+
+      favorites.forEach(item => {
+        const div = document.createElement("div");
+        div.classList.add("item");
+        const metadata = formatMovieMetadata(item);
+        div.innerHTML = `
+          <img src="${item.img}" alt="${item.name}">
+          <h3>${item.name}</h3>
+          ${metadata.ratingDisplay}
+          ${metadata.genreDisplay}
+          <p><strong>שנה:</strong> ${item.year}</p>
+          ${metadata.directorDisplay}
+          ${metadata.castDisplay}
+          ${metadata.descriptionDisplay}
+          ${metadata.watchSection}
+        `;
+
+        grid.appendChild(div);
+
+        const likeBtn = div.querySelector(".like-btn");
+        const heart = likeBtn?.querySelector(".heart");
+        const count = div.querySelector(".like-count");
+
+        if (likeBtn && heart && count) {
+          likeBtn.addEventListener("click", async () => {
+            const wasLiked = item.liked;
+            item.liked = !item.liked;
+
+            if (item.liked) {
+              item.likes++;
+              likeBtn.classList.add("liked");
+              heart.textContent = '❤️';
+              heart.classList.add("animate");
+              createParticles(div);
+              likedContentIds.push(String(item.id));
+            } else {
+              item.likes--;
+              likeBtn.classList.remove("liked");
+              heart.textContent = '🤍';
+              likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
+            }
+            count.textContent = item.likes;
+            setTimeout(() => heart.classList.remove("animate"), 300);
+
+            if (userId && profileName) {
+              try {
+                const response = await fetch(`${API_BASE_URL}/profiles/like`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    userId: userId,
+                    profileName: profileName,
+                    contentId: String(item.id),
+                    contentGenres: item.genre || []
+                  })
+                });
+
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data.likedContent) {
+                    likedContentIds = data.likedContent.map(id => String(id));
+                  }
+                } else {
+                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                  item.liked = wasLiked;
+                  if(wasLiked) {
+                    item.likes--;
+                    likeBtn.classList.remove("liked");
+                    heart.textContent = '🤍';
+                    likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
+                  } else {
+                    item.likes++;
+                    likeBtn.classList.add("liked");
+                    heart.textContent = '❤️';
+                    likedContentIds.push(String(item.id));
+                  }
+                  count.textContent = item.likes;
+                  alert("שגיאה בשמירת הלייק. נסה שוב.");
+                  console.error('Save failed:', errorData);
+                }
+              } catch (error) {
+                console.error('Error saving like:', error);
+                item.liked = wasLiked;
+                if(wasLiked) {
+                  item.likes--;
+                  likeBtn.classList.remove("liked");
+                  heart.textContent = '🤍';
+                  likedContentIds = likedContentIds.filter(id => String(id) !== String(item.id));
+                } else {
+                  item.likes++;
+                  likeBtn.classList.add("liked");
+                  heart.textContent = '❤️';
+                  likedContentIds.push(String(item.id));
+                }
+                count.textContent = item.likes;
+                alert("שגיאה בשמירת הלייק. נסה שוב.");
+              }
+            } else {
+              const storedLikes = JSON.parse(localStorage.getItem(`likes_${userId}_${profileName}`)) || {};
+              storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+              localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
+            }
+          });
+        }
+
+        setupFavoriteButton(div, item);
+        setupViewMoreCast(div, item);
+        setupWatchButtons(div, item);
+      });
+
+      favoritesDiv.appendChild(grid);
     }
   
     function renderNewest(list) {
@@ -466,10 +969,7 @@
           ${metadata.directorDisplay}
           ${metadata.castDisplay}
           ${metadata.descriptionDisplay}
-          <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
-          <button class="like-btn ${item.liked ? 'liked' : ''}">
-            <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
-          </button>
+          ${metadata.watchSection}
         `;
         grid.appendChild(div);
 
@@ -567,6 +1067,10 @@
           }
 
         });
+
+        setupFavoriteButton(div, item);
+        setupViewMoreCast(div, item);
+        setupWatchButtons(div, item);
       });
       newestDiv.appendChild(grid);
     }
@@ -626,10 +1130,7 @@
             ${metadata.directorDisplay}
             ${metadata.castDisplay}
             ${metadata.descriptionDisplay}
-            <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
-            <button class="like-btn ${item.liked ? 'liked' : ''}">
-              <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
-            </button>
+            ${metadata.watchSection}
           `;
   
           grid.appendChild(div);
@@ -726,6 +1227,10 @@
               localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
             }
           });
+
+          setupFavoriteButton(div, item);
+          setupViewMoreCast(div, item);
+          setupWatchButtons(div, item);
         });
   
         section.appendChild(title);
@@ -777,10 +1282,7 @@
       ${metadata.directorDisplay}
       ${metadata.castDisplay}
       ${metadata.descriptionDisplay}
-      <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
-      <button class="like-btn ${item.liked ? 'liked' : ''}">
-        <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
-      </button>
+      ${metadata.watchSection}
     `;
 
     grid.appendChild(div);
@@ -878,6 +1380,10 @@
         localStorage.setItem(`likes_${userId}_${profileName}`, JSON.stringify(storedLikes));
       }
     });
+
+    setupFavoriteButton(div, item);
+    setupViewMoreCast(div, item);
+    setupWatchButtons(div, item);
   });
 
   catalogDiv.appendChild(grid);

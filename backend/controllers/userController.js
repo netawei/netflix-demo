@@ -146,6 +146,7 @@ exports.addProfile = async (req, res) => {
       name: name.trim(),
       avatar: avatar || "https://picsum.photos/seed/" + Date.now() + "/200",
       likedContent: [],
+      favorites: [],
       preferences: {
         favoriteGenres: []
       }
@@ -298,6 +299,64 @@ exports.toggleContentLike = async (req, res) => {
   }
 };
 
+// Toggle favorite content for a profile
+exports.toggleFavoriteContent = async (req, res) => {
+  try {
+    const { userId, profileName, contentId } = req.body;
+
+    if (!userId || !profileName || contentId === undefined) {
+      return res.status(400).json({ message: 'User ID, profile name, and content ID are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profile = user.profiles.find(p => p.name === profileName);
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    if (!profile.favorites) {
+      profile.favorites = [];
+    }
+
+    const contentIdStr = String(contentId);
+    const normalizedFavorites = profile.favorites.map(id => String(id));
+    const favoriteIndex = normalizedFavorites.findIndex(id => id === contentIdStr);
+
+    let favorited = false;
+
+    if (favoriteIndex > -1) {
+      const actualIndex = profile.favorites.findIndex(id => String(id) === contentIdStr);
+      if (actualIndex > -1) {
+        profile.favorites.splice(actualIndex, 1);
+      }
+    } else {
+      const exists = profile.favorites.some(id => String(id) === contentIdStr);
+      if (!exists) {
+        profile.favorites.push(contentIdStr);
+      }
+      favorited = true;
+    }
+
+    user.markModified('profiles');
+    await user.save();
+
+    const favorites = (profile.favorites || []).map(id => String(id));
+
+    res.json({
+      message: 'Favorite toggled successfully',
+      favorited,
+      favorites
+    });
+  } catch (err) {
+    console.error('Error in toggleFavoriteContent:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Get liked content for a profile
 exports.getProfileLikedContent = async (req, res) => {
   try {
@@ -329,6 +388,40 @@ exports.getProfileLikedContent = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get favorited content for a profile
+exports.getProfileFavorites = async (req, res) => {
+  try {
+    const { userId, profileName } = req.body;
+    const userIdParam = req.params.userId;
+
+    const userIdToUse = userId || userIdParam;
+
+    if (!userIdToUse || !profileName) {
+      return res.status(400).json({ message: 'User ID and profile name are required' });
+    }
+
+    const user = await User.findById(userIdToUse);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profile = user.profiles.find(p => p.name === profileName);
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    const favorites = (profile.favorites || []).map(id => String(id));
+
+    res.json({
+      favorites,
+      profileName: profile.name
+    });
+  } catch (err) {
+    console.error('Error fetching favorites:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
