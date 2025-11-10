@@ -549,6 +549,14 @@
     }
 
     function setupWatchButtons(container, item) {
+      const seriesBtn = container.querySelector('.btn-watch-series');
+      if (seriesBtn) {
+        seriesBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openEpisodesOverlay(item);
+        });
+      }
+      
       const startBtn = container.querySelector('.btn-start-watch');
       if (startBtn) {
         startBtn.addEventListener('click', (e) => {
@@ -556,6 +564,7 @@
           startWatch(item, true);
         });
       }
+      
       const continueBtn = container.querySelector('.btn-continue-watch');
       if (continueBtn) {
         continueBtn.addEventListener('click', (e) => {
@@ -563,6 +572,14 @@
           startWatch(item, false);
         });
       }
+    }
+
+    function openEpisodesOverlay(seriesItem) {
+      const params = new URLSearchParams({
+        contentId: seriesItem.id,
+        userId: userId
+      });
+      window.location.href = `episodes-overlay.html?${params.toString()}`;
     }
 
     function setupFavoriteButton(container, item) {
@@ -727,16 +744,19 @@
           ${item.favorited ? '★ במועדפים' : '☆ הוסף למועדפים'}
         </button>
       `;
+   
+      // Determine if this is a series
+      const isSeries = item.type === 'series';
 
       const watchSection = `
         <div class="item-watch-block">
           <div class="item-actions">
-            <button class="btn-watch btn-start-watch" data-content="${item.id}">
-              ${hasProgress ? 'התחל מהתחלה' : 'התחל צפייה'}
+            <button class="btn-watch ${isSeries ? 'btn-watch-series' : 'btn-start-watch'}" data-content="${item.id}" data-type="${item.type || 'movie'}">
+              ${isSeries ? 'התחל צפייה' : (hasProgress ? 'התחל מהתחלה' : 'התחל צפייה')}
             </button>
-            ${hasProgress ? `<button class="btn-watch-secondary btn-continue-watch" data-content="${item.id}">המשך צפייה</button>` : ''}
+            ${!isSeries && hasProgress ? `<button class="btn-watch-secondary btn-continue-watch" data-content="${item.id}">המשך צפייה</button>` : ''}
           </div>
-          ${progressDisplay}
+          ${!isSeries && progressDisplay}
           ${favoriteButton}
           <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
