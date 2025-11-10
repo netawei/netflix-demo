@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שחקנים - Netflix Demo</title>
+  <style>
+    :root {
+      --bg: #000;
+      --card: rgba(0, 0, 0, 0.85);
+      --border: rgba(255, 255, 255, 0.1);
+      --primary: #e50914;
+      --text: #f8f8f8;
+      --muted: #b3b3b3;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top, #1f1f1f, #000);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      background: rgba(0, 0, 0, 0.7);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(6px);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    .header-actions button {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 999px;
+      color: var(--text);
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .header-actions button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-1px);
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 24px;
+    }
+    .movie-header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .movie-title {
+      margin: 0;
+      font-size: 30px;
+      color: #fff;
+    }
+    .actors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .actor-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .actor-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .actor-name {
+      font-size: 18px;
+      color: #f8f8f8;
+      margin: 0;
+    }
+    .actor-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .actor-actions a,
+    .actor-actions button {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 999px;
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .actor-actions a:hover,
+    .actor-actions button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+    }
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    @media (max-width: 768px) {
+      main {
+        padding: 16px;
+      }
+      .movie-title {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Netflix</div>
+    <div class="header-actions">
+      <button id="backBtn">חזרה לקטלוג</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="movie-header">
+      <h1 class="movie-title" id="movieTitle">...</h1>
+      <p class="empty-state" id="movieInfo">טוען פרטי סרט...</p>
+    </section>
+
+    <section id="actorsSection">
+      <div class="actors-grid" id="actorsGrid"></div>
+      <p class="empty-state" id="emptyState" style="display:none;">לא נמצאו שחקנים להצגה.</p>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const contentId = params.get('contentId');
+    const movieTitle = decodeURIComponent(params.get('title') || '').trim();
+    const backBtn = document.getElementById('backBtn');
+    const movieTitleElement = document.getElementById('movieTitle');
+    const movieInfoElement = document.getElementById('movieInfo');
+    const actorsGrid = document.getElementById('actorsGrid');
+    const emptyStateElement = document.getElementById('emptyState');
+
+    if (!contentId) {
+      alert('לא נמצא תוכן להצגת שחקנים');
+      window.location.href = 'main-page.html';
+    }
+
+    if (movieTitle) {
+      movieTitleElement.textContent = movieTitle;
+    }
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'main-page.html';
+    });
+
+    async function loadActors() {
+      try {
+        const response = await fetch(`http://localhost:5001/api/content/${contentId}/cast`);
+        if (!response.ok) {
+          throw new Error('לא ניתן לטעון את פרטי התוכן');
+        }
+        const content = await response.json();
+
+        movieTitleElement.textContent = content.title || movieTitle || 'ללא שם';
+        const cast = Array.isArray(content.cast) ? content.cast : [];
+
+        if (cast.length === 0) {
+          movieInfoElement.textContent = 'לא נמצאו שחקנים לתוכן זה.';
+          emptyStateElement.style.display = 'block';
+          return;
+        }
+
+        movieInfoElement.textContent = `סך הכל ${cast.length} שחקנים.`;
+        emptyStateElement.style.display = 'none';
+
+        cast.forEach((actor, index) => {
+          const actorName = (actor || '').trim();
+          if (!actorName) return;
+
+          const encodedName = encodeURIComponent(actorName);
+          const card = document.createElement('div');
+          card.className = 'actor-card';
+
+          card.innerHTML = `
+            <h2 class="actor-name">${actorName}</h2>
+            <div class="actor-actions">
+              <a href="https://en.wikipedia.org/wiki/${encodedName}" target="_blank" rel="noopener noreferrer">ויקיפדיה</a>
+              <a href="https://www.google.com/search?q=${encodedName}" target="_blank" rel="noopener noreferrer">גוגל</a>
+              <button data-actor="${encodedName}" class="copy-actor-name">העתק שם</button>
+            </div>
+          `;
+
+          actorsGrid.appendChild(card);
+        });
+
+        actorsGrid.querySelectorAll('.copy-actor-name').forEach(button => {
+          button.addEventListener('click', () => {
+            const actorName = decodeURIComponent(button.getAttribute('data-actor'));
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(actorName)
+                .then(() => {
+                  button.textContent = 'הועתק!';
+                  setTimeout(() => button.textContent = 'העתק שם', 1500);
+                })
+                .catch(() => {
+                  alert('נכשל בהעתקת הטקסט');
+                });
+            } else {
+              const tempInput = document.createElement('input');
+              tempInput.value = actorName;
+              document.body.appendChild(tempInput);
+              tempInput.select();
+              document.execCommand('copy');
+              document.body.removeChild(tempInput);
+              button.textContent = 'הועתק!';
+              setTimeout(() => button.textContent = 'העתק שם', 1500);
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error loading actors:', error);
+        movieInfoElement.textContent = 'אירעה שגיאה בטעינת שחקנים.';
+        emptyStateElement.style.display = 'block';
+      }
+    }
+
+    loadActors();
+  </script>
+</body>
+</html>
+
