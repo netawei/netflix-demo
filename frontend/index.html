@@ -1,4 +1,3 @@
-<!-- Neta-Weinreb-212648141-Shani-Nahaissi-214070443 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -66,6 +65,32 @@
       background:#111; color:var(--text);
     }
     input:focus{ outline: var(--focus); }
+    .password-field {
+      position: relative;
+    }
+    .password-input {
+      width: 100%;
+      padding-left: 40px;
+    }
+    .eye-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: var(--muted);
+      width: 20px;
+      height: 20px;
+      user-select: none;
+      transition: color 0.2s;
+    }
+    .eye-icon:hover {
+      color: var(--text);
+    }
+    .eye-icon svg {
+      width: 100%;
+      height: 100%;
+    }
     .btn-primary{
       width:100%; 
       padding:14px; 
@@ -75,6 +100,14 @@
       color:white;
       font-weight: bold; 
       cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-primary:hover {
+      background: #f6121d;
+    }
+    .btn-primary:disabled {
+      background: #666;
+      cursor: not-allowed;
     }
     .row{ display:flex; justify-content: space-between; font-size:14px; margin-top:10px; color: var(--muted);}
     .hint{ font-size:12px; color:var(--muted); margin-top:10px; }
@@ -84,6 +117,41 @@
       margin-top: -6px; 
       margin-bottom: 10px;
     }
+    .toggle-form {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+    .toggle-form p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .toggle-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .toggle-link:hover {
+      text-decoration: underline;
+    }
+    .form-section {
+      display: none;
+    }
+    .form-section.active {
+      display: block;
+    }
+    .success-message {
+      background: #27ae60;
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      text-align: center;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -91,57 +159,304 @@
     <div class="overlay"></div>
     <main class="center">
       <section class="card">
-        <h1>כניסה</h1>
-        <form id="loginForm" novalidate>
-          <label class="field">
-            <span class="label">אימייל</span>
-            <input type="email" id="email" required>
-            <div class="error" id="emailError"></div>
-          </label>
-          <label class="field">
-            <span class="label">סיסמה</span>
-            <input type="password" id="password" required>
-            <div class="error" id="passwordError"></div>
-          </label>
-          <button class="btn-primary" type="submit">התחברות</button>
-        </form>
+        
+        <!-- Login Form Section -->
+        <div id="loginSection" class="form-section active">
+          <h1>כניסה</h1>
+          <div id="loginSuccessMessage" class="success-message"></div>
+          <form id="loginForm" novalidate>
+            <label class="field">
+              <span class="label">אימייל</span>
+              <input type="email" id="loginEmail" required>
+              <div class="error" id="loginEmailError"></div>
+            </label>
+            <label class="field">
+              <span class="label">סיסמה</span>
+              <div class="password-field">
+                <input type="password" id="loginPassword" class="password-input" required>
+                <div class="eye-icon" onclick="togglePassword('loginPassword')">
+                  <svg id="loginPassword-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg id="loginPassword-eye-closed" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </div>
+              </div>
+              <div class="error" id="loginPasswordError"></div>
+            </label>
+            <button class="btn-primary" type="submit" id="loginBtn">התחברות</button>
+          </form>
+          <div class="toggle-form">
+            <p>משתמש חדש?</p>
+            <a class="toggle-link" onclick="toggleForm('register')">הירשם עכשיו</a>
+          </div>
+        </div>
+
+        <!-- Register Form Section -->
+        <div id="registerSection" class="form-section">
+          <h1>הרשמה</h1>
+          <div id="registerSuccessMessage" class="success-message"></div>
+          <form id="registerForm" novalidate>
+            <label class="field">
+              <span class="label">שם מלא</span>
+              <input type="text" id="registerName" required>
+              <div class="error" id="registerNameError"></div>
+            </label>
+            <label class="field">
+              <span class="label">אימייל</span>
+              <input type="email" id="registerEmail" required>
+              <div class="error" id="registerEmailError"></div>
+            </label>
+            <label class="field">
+              <span class="label">סיסמה</span>
+              <div class="password-field">
+                <input type="password" id="registerPassword" class="password-input" required>
+                <div class="eye-icon" onclick="togglePassword('registerPassword')">
+                  <svg id="registerPassword-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg id="registerPassword-eye-closed" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </div>
+              </div>
+              <div class="error" id="registerPasswordError"></div>
+            </label>
+            <label class="field">
+              <span class="label">אימות סיסמה</span>
+              <div class="password-field">
+                <input type="password" id="registerConfirmPassword" class="password-input" required>
+                <div class="eye-icon" onclick="togglePassword('registerConfirmPassword')">
+                  <svg id="registerConfirmPassword-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg id="registerConfirmPassword-eye-closed" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </div>
+              </div>
+              <div class="error" id="registerConfirmPasswordError"></div>
+            </label>
+            <button class="btn-primary" type="submit" id="registerBtn">הרשמה</button>
+          </form>
+          <div class="toggle-form">
+            <p>כבר רשום?</p>
+            <a class="toggle-link" onclick="toggleForm('login')">התחבר</a>
+          </div>
+        </div>
+        
       </section>
     </main>
   </div>
 
   <script>
-    const form = document.getElementById("loginForm");
-    const emailInput = document.getElementById("email");
-    const passwordInput = document.getElementById("password");
-    const emailError = document.getElementById("emailError");
-    const passwordError = document.getElementById("passwordError");
+    localStorage.setItem("BackendURL", "http://127.0.0.1:5001")
+    const BACKEND_URL = localStorage.getItem("BackendURL");
+    function togglePassword(inputId) {
+      const input = document.getElementById(inputId);
+      const eyeOpen = document.getElementById(inputId + '-eye-open');
+      const eyeClosed = document.getElementById(inputId + '-eye-closed');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        eyeOpen.style.display = 'none';
+        eyeClosed.style.display = 'block';
+      } else {
+        input.type = 'password';
+        eyeOpen.style.display = 'block';
+        eyeClosed.style.display = 'none';
+      }
+    }
 
-    form.addEventListener("submit", function(e) {
+    function toggleForm(type) {
+      const loginSection = document.getElementById('loginSection');
+      const registerSection = document.getElementById('registerSection');
+      
+      if (type === 'register') {
+        loginSection.classList.remove('active');
+        registerSection.classList.add('active');
+        document.getElementById('loginForm').reset();
+        document.querySelectorAll('#loginSection .error').forEach(el => el.textContent = '');
+      } else {
+        registerSection.classList.remove('active');
+        loginSection.classList.add('active');
+        document.getElementById('registerForm').reset();
+        document.querySelectorAll('#registerSection .error').forEach(el => el.textContent = '');
+      }
+    }
+
+    const loginForm = document.getElementById("loginForm");
+    const loginEmailInput = document.getElementById("loginEmail");
+    const loginPasswordInput = document.getElementById("loginPassword");
+    const loginEmailError = document.getElementById("loginEmailError");
+    const loginPasswordError = document.getElementById("loginPasswordError");
+
+    loginForm.addEventListener("submit", function(e) {
       e.preventDefault();
 
       let isValid = true;
 
-      const emailValue = emailInput.value.trim();
+      const emailValue = loginEmailInput.value.trim();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(emailValue)) {
-        emailError.textContent = "אנא הזן כתובת אימייל תקינה";
+        loginEmailError.textContent = "אנא הזן כתובת אימייל תקינה";
         isValid = false;
       } else {
-        emailError.textContent = "";
+        loginEmailError.textContent = "";
       }
 
-      const passwordValue = passwordInput.value.trim();
+      const passwordValue = loginPasswordInput.value.trim();
       if (passwordValue.length < 6) {
-        passwordError.textContent = "הסיסמה חייבת להכיל לפחות 6 תווים";
+        loginPasswordError.textContent = "הסיסמה חייבת להכיל לפחות 6 תווים";
         isValid = false;
       } else {
-        passwordError.textContent = "";
+        loginPasswordError.textContent = "";
       }
 
       if (isValid) {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userEmail", emailValue);
-        window.location.href = "main-page.html"; 
+        const loginBtn = document.getElementById('loginBtn');
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'מתחבר...';
+
+        fetch(BACKEND_URL +'/api/users/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: emailValue,
+            password: passwordValue
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.userData) {
+            localStorage.setItem("isLoggedIn", "true");
+            localStorage.setItem("userEmail", emailValue);
+            localStorage.setItem("userId", data.userData.id);
+            localStorage.setItem("userName", data.userData.name);
+            localStorage.setItem("isAdmin", data.userData.isAdmin ? "true" : "false");
+            if (data.userData.profiles) {
+              localStorage.setItem("userProfiles", JSON.stringify(data.userData.profiles.map((p, idx) => ({
+                id: idx + 1,
+                name: p.name,
+                img: p.avatar
+              }))));
+            }
+            
+            window.location.href = "profiles.html";
+          } else {
+            loginPasswordError.textContent = data.message || "שגיאה בהתחברות";
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          loginPasswordError.textContent = "שגיאה בהתחברות. נסה שוב.";
+        })
+        .finally(() => {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'התחברות';
+        });
+      }
+    });
+
+    const registerForm = document.getElementById("registerForm");
+    const registerNameInput = document.getElementById("registerName");
+    const registerEmailInput = document.getElementById("registerEmail");
+    const registerPasswordInput = document.getElementById("registerPassword");
+    const registerConfirmPasswordInput = document.getElementById("registerConfirmPassword");
+    const registerNameError = document.getElementById("registerNameError");
+    const registerEmailError = document.getElementById("registerEmailError");
+    const registerPasswordError = document.getElementById("registerPasswordError");
+    const registerConfirmPasswordError = document.getElementById("registerConfirmPasswordError");
+
+    registerForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      let isValid = true;
+
+      document.querySelectorAll('#registerSection .error').forEach(el => el.textContent = '');
+
+      const nameValue = registerNameInput.value.trim();
+      if (nameValue.length < 2) {
+        registerNameError.textContent = "השם חייב להכיל לפחות 2 תווים";
+        isValid = false;
+      }
+
+      const emailValue = registerEmailInput.value.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailValue)) {
+        registerEmailError.textContent = "אנא הזן כתובת אימייל תקינה";
+        isValid = false;
+      }
+
+      const passwordValue = registerPasswordInput.value;
+      if (passwordValue.length < 6) {
+        registerPasswordError.textContent = "הסיסמה חייבת להכיל לפחות 6 תווים";
+        isValid = false;
+      }
+
+      const confirmPasswordValue = registerConfirmPasswordInput.value;
+      if (passwordValue !== confirmPasswordValue) {
+        registerConfirmPasswordError.textContent = "הסיסמאות אינן תואמות";
+        isValid = false;
+      }
+
+      if (isValid) {
+        const registerBtn = document.getElementById('registerBtn');
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'נרשם...';
+
+        fetch(BACKEND_URL+ '/api/users/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: nameValue,
+            email: emailValue,
+            password: passwordValue
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success || data.user) {
+            const successMessage = document.getElementById('registerSuccessMessage');
+            successMessage.textContent = 'ההרשמה הושלמה בהצלחה! מעביר להתחברות';
+            successMessage.style.display = 'block';
+            
+            registerForm.reset();
+            
+            setTimeout(() => {
+              toggleForm('login');
+              loginEmailInput.value = emailValue;
+              const loginSuccessMessage = document.getElementById('loginSuccessMessage');
+              loginSuccessMessage.textContent = 'ההרשמה הושלמה! אנא התחבר עם הסיסמה שלך';
+              loginSuccessMessage.style.display = 'block';
+              setTimeout(() => {
+                loginSuccessMessage.style.display = 'none';
+              }, 5000);
+            }, 2000);
+          } else {
+            registerEmailError.textContent = data.message || "שגיאה בהרשמה. ייתכן שהאימייל כבר קיים";
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          registerEmailError.textContent = "שגיאה בהרשמה. נסה שוב.";
+        })
+        .finally(() => {
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'הרשמה';
+        });
       }
     });
   </script>

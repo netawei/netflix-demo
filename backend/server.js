@@ -5,12 +5,13 @@ const bodyParser = require("body-parser");
 const session = require("express-session");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const path = require("path");
 const { connectDB } = require("./config/db");
 
 const userRoutes = require("./routes/userRoutes");
 const contentRoutes = require("./routes/contentRoutes");
 const watchHistoryRoutes = require("./routes/watchHistoryRoutes");
-const cors = require("cors");
+// const cors = require("cors");
 
 dotenv.config();
 
@@ -23,18 +24,32 @@ mongoose.set("strictQuery", false);
 const app = express();
 
 // allow our local frontend to access backend api
-app.use(
-	cors({
-		origin: "*", // your frontend address
-		methods: ["GET", "POST", "PUT", "DELETE"],
-		credentials: true,
-	})
-);
+// app.use(
+// 	cors({
+// 		origin: "*", // your frontend address
+// 		methods: ["GET", "POST", "PUT", "DELETE"],
+// 		credentials: true,
+// 	})
+// );
 
 // Connect Database
 connectDB();
 
-// Middleware
+// Middleware - CORS
+app.use((req, res, next) => {
+	const origin = req.headers.origin;
+	res.header("Access-Control-Allow-Origin", origin || "*");
+	res.header("Access-Control-Allow-Credentials", "true");
+	res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+	res.header(
+		"Access-Control-Allow-Headers",
+		"Origin, X-Requested-With, Content-Type, Accept, Authorization"
+	);
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(200);
+	}
+	next();
+});
 app.use(bodyParser.json());
 app.use(
 	session({
@@ -48,6 +63,14 @@ app.use(
 app.use("/api/users", userRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/watchHistory", watchHistoryRoutes);
+
+// Serve static files from frontend directory
+app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Serve index.html for root route
+app.get("/", (req, res) => {
+	res.sendFile(path.join(__dirname, "../frontend/index.html"));
+});
 
 // Server
 const PORT = process.env.PORT || 5001;

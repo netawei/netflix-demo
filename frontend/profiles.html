@@ -22,19 +22,26 @@
       font-size: 35px;
     }
     .avatar-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: center;
+      align-items: flex-start;
       gap: 30px;
       width: 100%;
-      max-width: 700px;
+      max-width: 100%;
       margin-bottom: 30px;
       list-style: none;
       padding: 0;
+      overflow-x: auto;
+      padding-top: 15px;
     }
     .avatar {
       text-align: center;
       color: #aaa;
       cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
     }
     .avatar img {
       width: 150px;
@@ -46,7 +53,7 @@
     }
     .avatar img:hover {
       transform: scale(1.1);
-      border-color: #555;
+      border-color: transparent;
     }
     .avatar p {
       margin-top: 10px;
@@ -66,42 +73,779 @@
     .btn-outline:hover {
       background: #222;
     }
+    .avatar.add-profile {
+      flex-shrink: 0;
+      width: 150px;
+    }
+    .avatar.add-profile .add-button-content {
+      width: 150px;
+      height: 150px;
+      border: 2px dashed #555;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.5s, background 0.5s;
+    }
+    .avatar.add-profile:hover .add-button-content {
+      border-color: #888;
+      background: #111;
+    }
+    .add-icon {
+      font-size: 60px;
+      color: #555;
+      line-height: 1;
+    }
+    .add-profile-text {
+      margin-top: 10px;
+      color: #888;
+      font-weight: bold;
+      font-size: 17px;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-content {
+      background: rgba(0, 0, 0, 0.9);
+      padding: 32px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid #333;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .modal-content h2 {
+      margin: 0 0 20px;
+      font-size: 24px;
+      color: #fff;
+    }
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .modal-label {
+      font-size: 14px;
+      color: #b3b3b3;
+    }
+    .modal-input {
+      padding: 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #111;
+      color: #e5e5e5;
+      font-size: 16px;
+    }
+    .modal-input:focus {
+      outline: 2px solid #fff;
+      border-color: #fff;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 16px;
+      transition: opacity 0.2s;
+    }
+    .modal-btn:hover {
+      opacity: 0.9;
+    }
+    .modal-btn-primary {
+      background: #e50914;
+      color: white;
+    }
+    .modal-btn-secondary {
+      background: #333;
+      color: white;
+    }
+    .modal-error {
+      color: #ff6b6b;
+      font-size: 12px;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
+    .profile-name-input {
+      border: none;
+      border-bottom: 1px solid #fff;
+      background: transparent;
+      color: #fff;
+      font-weight: bold;
+      font-size: 17px;
+      text-align: center;
+      outline: none;
+      padding: 2px;
+      margin-top: 10px;
+      width: 150px;
+      display: none;
+    }
+    .profile-name-input.error {
+      border-bottom-color: #ff6b6b;
+    }
+    .profile-name-error {
+      color: #ff6b6b;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+      text-align: center;
+      width: 150px;
+    }
+    .avatar-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+    }
+    .avatar-option {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      object-fit: cover;
+    }
+    .avatar-option:hover {
+      border-color: #555;
+    }
+    .avatar-option.selected {
+      border-color: #e50914;
+    }
+    .delete-profile-btn {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #e50914;
+      border: 2px solid #000;
+      color: white;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .delete-profile-btn:hover {
+      transform: scale(1.1);
+      background: #ff0a16;
+    }
+    .avatar.manage-mode .delete-profile-btn {
+      display: flex;
+    }
+    .modal-content.delete-confirm {
+      text-align: center;
+    }
+    .modal-content.delete-confirm p {
+      color: #b3b3b3;
+      margin-bottom: 20px;
+    }
+    .modal-btn-danger {
+      background: #e50914;
+      color: white;
+    }
+     
+    .btn-admin {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 17px;
+      margin-right: 10px;
+      transition: background 0.3s, transform 0.2s;
+    }
+    .btn-admin:hover {
+      background: linear-gradient(135deg, #f6121d, #c50e15);
+      transform: scale(1.05);
+    }
+    .buttons-container {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    
   </style>
 </head>
 <body>
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal-content">
+      <h2>יצירת פרופיל חדש</h2>
+      <form id="profileForm">
+        <div class="modal-field">
+          <label class="modal-label">שם הפרופיל</label>
+          <input type="text" class="modal-input" id="profileNameInput" placeholder="הזן שם פרופיל" required>
+          <div class="modal-error" id="profileError"></div>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">בחר אווטאר</label>
+          <div class="avatar-selector" id="createAvatarSelector"></div>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="modal-btn modal-btn-secondary" onclick="closeProfileModal()">ביטול</button>
+          <button type="submit" class="modal-btn modal-btn-primary">יצירה</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="editAvatarModal">
+    <div class="modal-content">
+      <h2>שינוי אווטאר</h2>
+      <div class="modal-field">
+        <label class="modal-label">בחר אווטאר חדש</label>
+        <div class="avatar-selector" id="editAvatarSelector"></div>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" class="modal-btn modal-btn-secondary" onclick="closeEditAvatarModal()">ביטול</button>
+        <button type="button" class="modal-btn modal-btn-primary" onclick="saveAvatar()">שמור</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="deleteConfirmModal">
+    <div class="modal-content delete-confirm">
+      <h2>מחיקת פרופיל</h2>
+      <p id="deleteConfirmMessage"></p>
+      <div class="modal-buttons">
+        <button type="button" class="modal-btn modal-btn-secondary" onclick="closeDeleteConfirmModal()">ביטול</button>
+        <button type="button" class="modal-btn modal-btn-danger" onclick="confirmDelete()">מחק</button>
+      </div>
+    </div>
+  </div>
+
   <main class="center">
     <h1>מי צופה?</h1>
     <ul class="avatar-grid" id="profiles"></ul>
-    <button class="btn-outline">נהל פרופילים</button>
+    <div class="buttons-container">
+      <button class="btn-outline" id="manageButton">נהל פרופילים</button>
+    </div>
   </main>
 
   <script>
-    // מערך פרופילים
-    const profiles = [
-      { id: 1, name: "נטע", img: "https://images.unsplash.com/photo-1517191434949-5e90cd67d2b6?w=900" },
-      { id: 2, name: "אורח", img: "https://picsum.photos/seed/2/200" },
-      { id: 3, name: "ילדים", img: "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=900" },
-      { id: 4, name: "שני", img: "https://images.unsplash.com/photo-1665333354010-050f08f35907?w=900" }
-    ];
-
+    const BACKEND_URL = localStorage.getItem("BackendURL");
     const profilesContainer = document.getElementById("profiles");
+    const API_BASE_URL = BACKEND_URL+ '/api/users';
+    
+    let currentProfiles = [];
+    let canAddProfile = true;
+    let isManageMode = false;
+    let selectedAvatar = null;
+    let editingProfile = null;
+    let availableAvatars = [];
+    let profileToDelete = null;
 
-    // יצירת פרופילים בעמוד
-    profiles.forEach(profile => {
-      const li = document.createElement("li");
-      li.classList.add("avatar");
-      li.innerHTML = `
-        <img src="${profile.img}" alt="${profile.name}">
-        <p>${profile.name}</p>
-      `;
-      li.addEventListener("click", () => {
-        // שמירת הפרופיל ב-localStorage
-        localStorage.setItem("activeProfile", JSON.stringify(profile));
-        // מעבר לעמוד הראשי
-        window.location.href = "main-page.html";
-      });
-      profilesContainer.appendChild(li);
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      alert("אנא התחבר תחילה");
+      window.location.href = "index.html";
+    }
+
+    function isAvatarUrl(avatar) {
+      return avatar && (avatar.startsWith('http://') || avatar.startsWith('https://'));
+    }
+
+    async function loadAvailableAvatars() {
+      availableAvatars = [];
+      for (let i = 1; i <= 20; i++) {
+        const avatarPath = `images/avatars/avatar${i}.png`;
+        try {
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = avatarPath;
+          });
+          availableAvatars.push(avatarPath);
+        } catch {
+          break;
+        }
+      }
+      return availableAvatars;
+    }
+
+    document.getElementById('manageButton').addEventListener('click', function() {
+      isManageMode = !isManageMode;
+      this.textContent = isManageMode ? 'סיום ניהול' : 'נהל פרופילים';
+      renderProfiles();
     });
+    
+    async function loadProfiles() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to load profiles');
+        }
+        
+        const data = await response.json();
+        currentProfiles = data.profiles || [];
+        canAddProfile = data.canAddProfile !== false;
+        
+        const profilesForLocalStorage = currentProfiles.map((p, idx) => ({
+          id: idx + 1,
+          name: p.name,
+          img: p.avatar || "https://picsum.photos/seed/" + (idx + 1) + "/200"
+        }));
+        localStorage.setItem("userProfiles", JSON.stringify(profilesForLocalStorage));
+        
+        return currentProfiles;
+      } catch (error) {
+        console.error('Error loading profiles:', error);
+        const storedProfiles = localStorage.getItem("userProfiles");
+        if (storedProfiles) {
+          currentProfiles = JSON.parse(storedProfiles);
+          canAddProfile = currentProfiles.length < 5;
+          return currentProfiles;
+        }
+        return [];
+      }
+    }
+
+    async function openProfileModal() {
+      if (!canAddProfile) {
+        alert("לא ניתן להוסיף יותר מ-5 פרופילים");
+        return;
+      }
+      const modal = document.getElementById("profileModal");
+      const input = document.getElementById("profileNameInput");
+      const error = document.getElementById("profileError");
+      modal.classList.add("show");
+      input.value = "";
+      error.textContent = "";
+      input.focus();
+      
+      await loadAvailableAvatars();
+      const selector = document.getElementById('createAvatarSelector');
+      selector.innerHTML = '';
+      selectedAvatar = null;
+      
+      availableAvatars.forEach((avatar, index) => {
+        const img = document.createElement('img');
+        img.src = avatar;
+        img.className = 'avatar-option';
+        img.onclick = function() {
+          document.querySelectorAll('#createAvatarSelector .avatar-option').forEach(el => el.classList.remove('selected'));
+          img.classList.add('selected');
+          selectedAvatar = avatar;
+        };
+        if (index === 0) {
+          img.click();
+        }
+        selector.appendChild(img);
+      });
+    }
+
+    function closeProfileModal() {
+      const modal = document.getElementById("profileModal");
+      modal.classList.remove("show");
+    }
+
+    async function openEditAvatarModal(profileIndex) {
+      editingProfile = currentProfiles[profileIndex];
+      const modal = document.getElementById("editAvatarModal");
+      modal.classList.add("show");
+      
+      await loadAvailableAvatars();
+      const selector = document.getElementById('editAvatarSelector');
+      selector.innerHTML = '';
+      selectedAvatar = null;
+      
+      availableAvatars.forEach(avatar => {
+        const img = document.createElement('img');
+        img.src = avatar;
+        img.className = 'avatar-option';
+        img.onclick = function() {
+          document.querySelectorAll('#editAvatarSelector .avatar-option').forEach(el => el.classList.remove('selected'));
+          img.classList.add('selected');
+          selectedAvatar = avatar;
+        };
+        selector.appendChild(img);
+      });
+    }
+
+    function closeEditAvatarModal() {
+      const modal = document.getElementById("editAvatarModal");
+      modal.classList.remove("show");
+      editingProfile = null;
+    }
+
+    function openDeleteConfirmModal(profileIndex) {
+      profileToDelete = currentProfiles[profileIndex];
+      const modal = document.getElementById("deleteConfirmModal");
+      const message = document.getElementById("deleteConfirmMessage");
+      message.textContent = `האם אתה בטוח שברצונך למחוק את הפרופיל "${profileToDelete.name}"? פעולה זו אינה ניתנת לביטול.`;
+      modal.classList.add("show");
+    }
+
+    function closeDeleteConfirmModal() {
+      const modal = document.getElementById("deleteConfirmModal");
+      modal.classList.remove("show");
+      profileToDelete = null;
+    }
+
+    async function confirmDelete() {
+      if (!profileToDelete) return;
+      
+      const profileId = profileToDelete._id || profileToDelete.id;
+      console.log('Profile to delete:', profileToDelete);
+      console.log('Profile ID being sent:', profileId);
+      console.log('Full URL:', `${API_BASE_URL}/${userId}/profiles/${profileId}`);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          closeDeleteConfirmModal();
+          profileToDelete = null;
+          await renderProfiles();
+        } else {
+          const error = await response.json();
+          alert(error.message || "שגיאה במחיקת הפרופיל");
+        }
+      } catch (error) {
+        console.error('Error deleting profile:', error);
+        alert("שגיאה במחיקת הפרופיל. נסה שוב.");
+      }
+    }
+
+    async function saveAvatar() {
+      if (!selectedAvatar || !editingProfile) return;
+      
+      const profileId = editingProfile._id || editingProfile.id;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ avatar: selectedAvatar })
+        });
+
+        if (response.ok) {
+          closeEditAvatarModal();
+          await renderProfiles();
+        }
+      } catch (error) {
+        console.error('Error updating avatar:', error);
+      }
+    }
+
+    async function saveProfileName(profileIndex, newName, inputElement, errorElement, nameP) {
+      const profile = currentProfiles[profileIndex];
+      const existingProfile = currentProfiles.find(
+        (p, idx) => idx !== profileIndex && p.name && p.name.toLowerCase() === newName.toLowerCase()
+      );
+      
+      if (existingProfile) {
+        inputElement.classList.add('error');
+        errorElement.textContent = "שם זה כבר קיים";
+        errorElement.style.display = 'block';
+        return;
+      }
+      
+      inputElement.classList.remove('error');
+      errorElement.style.display = 'none';
+      
+      const profileId = profile._id || profile.id;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ name: newName })
+        });
+
+        if (response.ok) {
+          inputElement.style.display = 'none';
+          nameP.style.display = 'block';
+          await renderProfiles();
+        } else {
+          const error = await response.json();
+          errorElement.textContent = error.message || "שגיאה בעדכון";
+          errorElement.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error updating profile name:', error);
+        errorElement.textContent = "שגיאה בעדכון. נסה שוב.";
+        errorElement.style.display = 'block';
+      }
+    }
+
+    document.getElementById("profileModal").addEventListener("click", function(e) {
+      if (e.target === this) {
+        closeProfileModal();
+      }
+    });
+    
+    document.getElementById("editAvatarModal").addEventListener("click", function(e) {
+      if (e.target === this) {
+        closeEditAvatarModal();
+      }
+    });
+
+    document.getElementById("deleteConfirmModal").addEventListener("click", function(e) {
+      if (e.target === this) {
+        closeDeleteConfirmModal();
+      }
+    });
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") {
+        const modal = document.getElementById("profileModal");
+        if (modal.classList.contains("show")) {
+          closeProfileModal();
+        }
+        const editModal = document.getElementById("editAvatarModal");
+        if (editModal.classList.contains("show")) {
+          closeEditAvatarModal();
+        }
+        const deleteModal = document.getElementById("deleteConfirmModal");
+        if (deleteModal.classList.contains("show")) {
+          closeDeleteConfirmModal();
+        }
+      }
+    });
+
+    document.getElementById("profileForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      const profileNameInput = document.getElementById("profileNameInput");
+      const profileError = document.getElementById("profileError");
+      const profileName = profileNameInput.value.trim();
+
+      if (!profileName) {
+        profileError.textContent = "אנא הזן שם פרופיל";
+        return;
+      }
+
+      if (!canAddProfile) {
+        profileError.textContent = "לא ניתן להוסיף יותר מ-5 פרופילים";
+        return;
+      }
+
+      const existingProfile = currentProfiles.find(
+        profile => profile.name && profile.name.toLowerCase() === profileName.toLowerCase()
+      );
+      
+      if (existingProfile) {
+        profileError.textContent = "שם פרופיל זה כבר קיים. אנא בחר שם אחר.";
+        return;
+      }
+
+      profileError.textContent = "";
+
+      const avatarToUse = selectedAvatar || "https://picsum.photos/seed/" + Date.now() + "/200";
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profiles/add`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId: userId,
+            name: profileName,
+            avatar: avatarToUse
+          })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          profileError.textContent = data.message || "שגיאה ביצירת פרופיל";
+          return;
+        }
+
+        closeProfileModal();
+        await renderProfiles();
+      } catch (error) {
+        console.error('Error creating profile:', error);
+        profileError.textContent = "שגיאה ביצירת פרופיל. נסה שוב.";
+      }
+    });
+
+    function createNewProfile() {
+      openProfileModal();
+    }
+
+    async function renderProfiles() {
+      await loadProfiles();
+      profilesContainer.innerHTML = "";
+
+      currentProfiles.forEach((profile, index) => {
+        const li = document.createElement("li");
+        li.classList.add("avatar");
+        
+        if (isManageMode) {
+          li.classList.add("manage-mode");
+        }
+        
+        const avatarSrc = profile.avatar || "https://picsum.photos/seed/" + (index + 1) + "/200";
+        
+        li.innerHTML = `
+          <img src="${avatarSrc}" alt="${profile.name}" data-index="${index}">
+          <p data-index="${index}">${profile.name}</p>
+          <input type="text" class="profile-name-input" value="${profile.name}" data-index="${index}">
+          <div class="profile-name-error"></div>
+          <button class="delete-profile-btn" data-index="${index}" title="מחק פרופיל">×</button>
+        `;
+        
+        const img = li.querySelector('img');
+        const nameP = li.querySelector('p');
+        const nameInput = li.querySelector('.profile-name-input');
+        const errorDiv = li.querySelector('.profile-name-error');
+        const deleteBtn = li.querySelector('.delete-profile-btn');
+        
+        if (isManageMode) {
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(e.target.dataset.index);
+            openEditAvatarModal(idx);
+          });
+          
+          nameP.addEventListener('click', (e) => {
+            e.stopPropagation();
+            nameP.style.display = 'none';
+            nameInput.style.display = 'block';
+            errorDiv.style.display = 'none';
+            nameInput.focus();
+            nameInput.select();
+          });
+          
+          nameInput.addEventListener('blur', function(e) {
+            const idx = parseInt(e.target.dataset.index);
+            const newName = this.value.trim();
+            if (!newName) {
+              this.value = currentProfiles[idx].name;
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+            } else if (newName !== currentProfiles[idx].name) {
+              saveProfileName(idx, newName, this, errorDiv, nameP);
+            } else {
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+            }
+          });
+          
+          nameInput.addEventListener('keydown', function(e) {
+            const idx = parseInt(this.dataset.index);
+            if (e.key === 'Enter') {
+              this.blur();
+            } else if (e.key === 'Escape') {
+              this.value = currentProfiles[idx].name;
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+              this.classList.remove('error');
+            }
+          });
+
+          nameInput.addEventListener('input', function() {
+            this.classList.remove('error');
+            errorDiv.style.display = 'none';
+          });
+
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(deleteBtn.dataset.index);
+            openDeleteConfirmModal(idx);
+          });
+        } else {
+          li.addEventListener("click", () => {
+            localStorage.setItem("activeProfile", JSON.stringify({
+              id: index + 1,
+              name: profile.name,
+              img: avatarSrc,
+              userId: userId,
+              originalProfile: profile
+            }));
+            window.location.href = "main-page.html";
+          });
+        }
+        
+        profilesContainer.appendChild(li);
+      });
+
+      if (canAddProfile && currentProfiles.length < 5 && !isManageMode) {
+        const addLi = document.createElement("li");
+        addLi.classList.add("avatar", "add-profile");
+        addLi.innerHTML = `
+          <div class="add-button-content">
+            <div class="add-icon">+</div>
+            <p class="add-profile-text">פרופיל חדש</p>
+          </div>
+        `;
+        addLi.addEventListener("click", createNewProfile);
+        profilesContainer.appendChild(addLi);
+      }
+    }
+    
+    renderProfiles();
+    
+    const checkAdminStatus = () => {
+      const isAdmin = localStorage.getItem("isAdmin") === "true";
+      console.log('isAdmin from localStorage:', isAdmin);
+      
+      if (isAdmin) {
+        const buttonsContainer = document.querySelector('.buttons-container');
+        
+        if (buttonsContainer) {
+          const adminBtn = document.createElement('button');
+          adminBtn.className = 'btn-admin';
+          adminBtn.textContent = 'הוספת תוכן';
+          adminBtn.onclick = () => {
+            window.location.href = 'add-content.html';
+          };
+          
+          buttonsContainer.appendChild(adminBtn);
+          console.log('Admin button added');
+        }
+      }
+    };
+
+    setTimeout(() => {
+      checkAdminStatus();
+    }, 100);
   </script>
 </body>
 </html>
