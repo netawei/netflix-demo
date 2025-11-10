@@ -420,13 +420,57 @@
           loadWatchHistory()
         ]);
 
+        // Load episode progress for all series
+        const seriesIds = contentResponse.filter(c => c.type === 'series').map(c => c._id);
+        const episodeProgressData = {};
+        
+        if (userId) {
+          await Promise.all(
+            seriesIds.map(async (seriesId) => {
+              try {
+                const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesId}`, {
+                  method: 'GET',
+                  credentials: 'include'
+                });
+                if (response.ok) {
+                  const data = await response.json();
+                  episodeProgressData[seriesId] = data;
+                }
+              } catch (error) {
+                console.error(`Error loading progress for series ${seriesId}:`, error);
+              }
+            })
+          );
+        }
+
         catalog = contentResponse.map(content => {
           const timeMs = new Date(content.updatedAt).getTime();
           const contentId = String(content._id);
           const history = historyMap[contentId] || {};
+          
+          let progress = history.progress || 0;
+          let currentEpisodeInfo = null;
+          
+          // For series, check episode progress
+          if (content.type === 'series' && episodeProgressData[content._id]) {
+            const seriesProgress = episodeProgressData[content._id];
+            if (seriesProgress.currentEpisode) {
+              currentEpisodeInfo = seriesProgress.currentEpisode;
+              // Find the progress for current episode
+              const currentEpProgress = (seriesProgress.episodeProgress || []).find(
+                ep => ep.seasonNumber === currentEpisodeInfo.seasonNumber && 
+                      ep.episodeNumber === currentEpisodeInfo.episodeNumber
+              );
+              if (currentEpProgress) {
+                progress = currentEpProgress.progress;
+              }
+            }
+          }
+          
           return {
             id: contentId,
             name: content.title,
+            type: content.type,
             year: content.releaseYear,
             likes: content.likes || 0,
             img: content.posterUrl,
@@ -435,7 +479,8 @@
             cast: content.cast || [],
             description: content.description || '',
             rating: content.rating || null,
-            progress: history.progress || 0,
+            progress: progress,
+            currentEpisode: currentEpisodeInfo,
             lastWatchedAt: history.lastWatchedAt || null,
             updatedAt: isNaN(timeMs) ? 0 : timeMs
           };
@@ -565,22 +610,83 @@
         });
       }
       
-      const continueBtn = container.querySelector('.btn-continue-watch');
-      if (continueBtn) {
-        continueBtn.addEventListener('click', (e) => {
+      const restartSeriesBtn = container.querySelector('.btn-restart-series');
+      if (restartSeriesBtn) {
+        restartSeriesBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          startWatch(item, false);
+          // Restart from episode 1 of season 1
+          const params = new URLSearchParams({
+            contentId: item.id,
+            seasonNumber: 1,
+            episodeNumber: 1,
+            restart: '1'
+          });
+          window.location.href = `watch.html?${params.toString()}`;
+        });
+      }
+      
+      const restartMovieBtn = container.querySelector('.btn-restart-movie');
+      if (restartMovieBtn) {
+        restartMovieBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startWatch(item, true);
         });
       }
     }
 
-    function openEpisodesOverlay(seriesItem) {
-      const params = new URLSearchParams({
-        contentId: seriesItem.id,
-        userId: userId
-      });
-      window.location.href = `episodes-overlay.html?${params.toString()}`;
+    async function openEpisodesOverlay(seriesItem) {
+  try {
+    // Load the user's watch history for this series
+    const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesItem.id}`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    
+    let seasonNumber = 1;
+    let episodeNumber = 1;
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // If user has a current episode saved, use that
+      if (data.currentEpisode && data.currentEpisode.seasonNumber && data.currentEpisode.episodeNumber) {
+        seasonNumber = data.currentEpisode.seasonNumber;
+        episodeNumber = data.currentEpisode.episodeNumber;
+      }
+    } else {
+      // No watch history - fetch series data to get first episode
+      const seriesResponse = await fetch(`http://localhost:5001/api/content/${seriesItem.id}`);
+      if (seriesResponse.ok) {
+        const seriesData = await seriesResponse.json();
+        if (seriesData.seasons && seriesData.seasons.length > 0) {
+          const firstSeason = seriesData.seasons[0];
+          if (firstSeason.episodes && firstSeason.episodes.length > 0) {
+            seasonNumber = firstSeason.seasonNumber;
+            episodeNumber = firstSeason.episodes[0].episodeNumber;
+          }
+        }
+      }
     }
+    
+    // Navigate directly to watch.html with the episode
+    const params = new URLSearchParams({
+      contentId: seriesItem.id,
+      seasonNumber: seasonNumber,
+      episodeNumber: episodeNumber,
+      restart: '0'  // Don't restart - resume from saved progress
+    });
+    window.location.href = `watch.html?${params.toString()}`;
+    
+  } catch (error) {
+    console.error('Error loading series:', error);
+    // Fallback: open episodes overlay if something goes wrong
+    const params = new URLSearchParams({
+      contentId: seriesItem.id,
+      userId: userId
+    });
+    window.location.href = `episodes-overlay.html?${params.toString()}`;
+  }
+}
 
     function setupFavoriteButton(container, item) {
       const favoriteBtn = container.querySelector('.favorite-btn');
@@ -667,9 +773,13 @@
 
     async function startWatch(item, restart = false) {
       if (!userId) {
-        alert("אנא התחבר תחילה כדי לצפות בתוכן");
+        alert("Please login first");
         return;
       }
+      
+      // Show loading overlay
+      showLoadingOverlay(restart ? 'Starting from beginning...' : 'Loading video...');
+      
       const progressToSave = restart ? 0 : (watchHistoryMap[item.id]?.progress || 0);
       try {
         await fetch(`${WATCH_HISTORY_BASE}/progress`, {
@@ -690,6 +800,8 @@
         };
       } catch (error) {
         console.error('Error updating watch progress:', error);
+        hideLoadingOverlay();
+        return;
       }
 
       const params = new URLSearchParams({ contentId: item.id });
@@ -748,19 +860,26 @@
       // Determine if this is a series
       const isSeries = item.type === 'series';
 
+      let progressText = '';
+      if (isSeries && item.currentEpisode && hasProgress) {
+        progressText = `<p class="item-progress-text">Season ${item.currentEpisode.seasonNumber} Episode ${item.currentEpisode.episodeNumber} - Saved at ${formatPlaybackTime(item.progress)}</p>`;
+      } else if (!isSeries && hasProgress) {
+        progressText = `<p class="item-progress-text">Saved at ${formatPlaybackTime(item.progress)}</p>`;
+      }
+
       const watchSection = `
         <div class="item-watch-block">
           <div class="item-actions">
             <button class="btn-watch ${isSeries ? 'btn-watch-series' : 'btn-start-watch'}" data-content="${item.id}" data-type="${item.type || 'movie'}">
-              ${isSeries ? 'התחל צפייה' : (hasProgress ? 'התחל מהתחלה' : 'התחל צפייה')}
+              ${hasProgress ? 'Continue Watching' : 'Start Watching'}
             </button>
-            ${!isSeries && hasProgress ? `<button class="btn-watch-secondary btn-continue-watch" data-content="${item.id}">המשך צפייה</button>` : ''}
+            ${hasProgress ? `<button class="btn-watch-secondary ${isSeries ? 'btn-restart-series' : 'btn-restart-movie'}" data-content="${item.id}">Start from Beginning</button>` : ''}
           </div>
-          ${!isSeries && progressDisplay}
+          ${progressText}
           ${favoriteButton}
-          <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+          <p><strong>Likes:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
-            <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+            <span class="heart">${item.liked ? '❤️' : '🤍'}</span> Like
           </button>
         </div>
       `;
