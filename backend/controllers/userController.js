@@ -1,5 +1,4 @@
 const User = require('../models/User');
-const Content = require('../models/Content');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 
@@ -597,3 +596,82 @@ exports.deleteProfile = async (req, res) => {
       profiles: user.profiles
     });
 }
+
+exports.getStatistics = async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const User = require('../models/User');
+      const WatchHistory = require('../models/watchHistory');
+      // לא צריך את Content בכלל!
+      
+      const user = await User.findById(userId).populate('profiles');
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 6);
+  
+      const dates = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        dates.push(date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }));
+      }
+  
+      // הבא את ההיסטוריה עם populate של content
+      const watchHistory = await WatchHistory.find({
+        user: userId,
+        lastWatchedAt: { $gte: startDate, $lte: endDate }
+      }).populate('content');  // זה יביא את התוכן אוטומטית!
+  
+      const profileViews = [];
+      for (const profile of user.profiles) {
+        const dailyViews = dates.map(dateStr => {
+          return watchHistory.filter(w => {
+            const watchDate = new Date(w.lastWatchedAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+            const profileId = w.profile?._id || w.profile;
+            return String(profileId) === String(profile._id) && watchDate === dateStr;
+          }).length;
+        });
+  
+        profileViews.push({
+          profileName: profile.name,
+          profileId: profile._id,
+          dailyViews: dailyViews
+        });
+      }
+  
+      const genreCounts = {};
+      watchHistory.forEach(watch => {
+        // השתמש ב-watch.content שהגיע מ-populate
+        if (watch.content && watch.content.genre) {
+          watch.content.genre.forEach(g => {
+            genreCounts[g] = (genreCounts[g] || 0) + 1;
+          });
+        }
+      });
+  
+      const sortedGenres = Object.entries(genreCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+  
+      res.json({
+        dates: dates,
+        profileViews: profileViews,
+        dailyViewsData: {
+          dates: dates,
+          profileViews: profileViews
+        },
+        genreStats: {
+          genres: sortedGenres.map(g => g[0]),
+          viewCounts: sortedGenres.map(g => g[1])
+        }
+      });
+  
+    } catch (error) {
+      console.error('Error getting statistics:', error);
+      res.status(500).json({ message: 'Error fetching statistics' });
+    }
+  };

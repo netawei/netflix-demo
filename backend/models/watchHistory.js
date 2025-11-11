@@ -6,6 +6,10 @@ const watchHistorySchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  profile: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
+  },
   content: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Content',
