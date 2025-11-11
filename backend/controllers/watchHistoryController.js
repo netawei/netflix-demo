@@ -1,22 +1,19 @@
 const WatchHistory = require('../models/watchHistory');
 
 exports.createWatchHistory = async (req, res) => {
-    try {
-      const { user, profile, content } = req.body;
-      console.log('Received profile:', profile); 
-      const exists = await WatchHistory.findOne({ user, content });
-      if (exists) return res.status(400).json({ message: 'Already exists' });
-      const record = new WatchHistory({ 
-        user, profile, content 
-      });
-      
-      await record.save();
-      console.log('Saved record:', record); 
-      res.status(201).json(record);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  };
+  try {
+    const { user,profile, content } = req.body;
+
+    const exists = await WatchHistory.findOne({ user, profile, content });
+    if (exists) return res.status(400).json({ message: 'Already exists' });
+
+    const record = new WatchHistory({ user, profile, content });
+    await record.save();
+    res.status(201).json(record);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
 exports.getAllHistories = async (req, res) => {
   try {
@@ -44,10 +41,10 @@ exports.getUserHistory = async (req, res) => {
 
 exports.updateProgress = async (req, res) => {
   try {
-    const { user, content, progress } = req.body;
+    const { user, profile, content, progress } = req.body;
     // findOneAndUpdate( filter, update, options )
     const record = await WatchHistory.findOneAndUpdate(
-      { user, content },
+      { user, profile, content },
       { progress, lastWatchedAt: Date.now() },
       { new: true, upsert: true } //upsert: update or insert
     );
@@ -60,7 +57,7 @@ exports.updateProgress = async (req, res) => {
 // New function for updating episode progress
 exports.updateEpisodeProgress = async (req, res) => {
   try {
-    const { user, content, seasonNumber, episodeNumber, progress, completed } = req.body;
+    const { user, profile, content, seasonNumber, episodeNumber, progress, completed } = req.body;
     
     const record = await WatchHistory.findOne({ user, content });
     
@@ -68,6 +65,7 @@ exports.updateEpisodeProgress = async (req, res) => {
       // Create new record
       const newRecord = new WatchHistory({
         user,
+        profile,
         content,
         currentEpisode: { seasonNumber, episodeNumber },
         episodeProgress: [{
@@ -83,6 +81,7 @@ exports.updateEpisodeProgress = async (req, res) => {
     }
     
     // Update existing record
+    record.profile = profile;
     const existingEpisode = record.episodeProgress.find(
       ep => ep.seasonNumber === seasonNumber && ep.episodeNumber === episodeNumber
     );

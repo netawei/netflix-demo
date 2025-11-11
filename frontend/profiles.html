@@ -271,10 +271,10 @@
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #1e88e5, #1565c0);
+      background: linear-gradient(135deg, #e51e1e, #c01515);
       border: none;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(30, 136, 229, 0.4);
+      box-shadow: 0 4px 12px rgba(236, 38, 38, 0.4);
       transition: transform 0.3s, box-shadow 0.3s;
       z-index: 999;
       display: flex;
@@ -285,13 +285,13 @@
 
     .stats-fab:hover {
       transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(30, 136, 229, 0.6);
+      box-shadow: 0 6px 20px rgba(229, 30, 30, 0.6);
     }
 
     .stats-fab svg {
       width: 28px;
       height: 28px;
-      fill: white;
+      fill: rgb(3, 3, 3);
     }
     
   </style>
@@ -925,6 +925,27 @@
     window.closeDeleteConfirmModal = closeDeleteConfirmModal;
     window.confirmDelete = confirmDelete;
 })();
+
+  function addStatisticsButton() {
+    const statsFab = document.createElement('button');
+    statsFab.className = 'stats-fab';
+    statsFab.title = 'סטטיסטיקות';
+
+    statsFab.innerHTML = `
+      <svg viewBox="0 0 24 24">
+        <path d="M3 13h2v8H3zm4-8h2v16H7zm4 4h2v12h-2zm4-2h2v14h-2zm4-2h2v16h-2z"/>
+      </svg>
+      `;
+    statsFab.onclick = () => {
+      window.location.href = 'statistics.html';
+    };
+    
+    document.body.appendChild(statsFab);
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    addStatisticsButton();
+  });
+
   </script>
 </body>
 </html>
