@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>סטטיסטיקות צפייה</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      background: #141414;
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    header {
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #e50914, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .subtitle {
+      color: #999;
+      font-size: 1.1rem;
+    }
+    
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    
+    .chart-container {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .chart-container:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(229, 9, 20, 0.2);
+    }
+    
+    .chart-title {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      color: #fff;
+      text-align: center;
+    }
+    
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+    }
+    
+    .back-btn {
+      display: inline-block;
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: bold;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .back-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 20px rgba(229, 9, 20, 0.4);
+    }
+    
+    .loading {
+      text-align: center;
+      font-size: 1.2rem;
+      color: #999;
+      padding: 50px;
+    }
+    
+    .error {
+      background: rgba(229, 9, 20, 0.1);
+      border: 1px solid #e50914;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: #ff6b6b;
+    }
+    
+    .stats-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    
+    .stat-card {
+      background: rgba(229, 9, 20, 0.1);
+      border: 1px solid rgba(229, 9, 20, 0.3);
+      border-radius: 12px;
+      padding: 25px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #e50914;
+      margin-bottom: 10px;
+    }
+    
+    .stat-label {
+      color: #999;
+      font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .chart-wrapper {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>סטטיסטיקות צפייה</h1>
+      <p class="subtitle">ניתוח נתוני הצפייה שלך</p>
+    </header>
+    
+    <div id="loadingMessage" class="loading">טוען נתונים...</div>
+    <div id="errorMessage" class="error" style="display: none;"></div>
+    
+    <div id="statsContent" style="display: none;">
+      <div class="stats-summary" id="statsSummary"></div>
+      
+      <div class="charts-grid">
+        <div class="chart-container">
+          <h2 class="chart-title">צפיות יומיות לפי פרופיל</h2>
+          <div class="chart-wrapper">
+            <canvas id="dailyViewsChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="chart-container">
+          <h2 class="chart-title">פופולריות תכנים לפי ז'אנר</h2>
+          <div class="chart-wrapper">
+            <canvas id="genreChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 40px;">
+        <button class="back-btn" onclick="window.location.href='profiles.html'">חזרה לפרופילים</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE_URL = 'http://localhost:5001/api';
+    const userId = localStorage.getItem("userId");
+    
+    if (!userId) {
+      alert("אנא התחבר תחילה");
+      window.location.href = "index.html";
+    }
+
+    let dailyViewsChart = null;
+    let genreChart = null;
+
+    async function fetchStatistics() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/users/${userId}/statistics`, {
+        method: 'GET',
+        credentials: 'include'
+        });
+        
+        if (!response.ok) {
+        throw new Error('Failed to fetch statistics');
+        }
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching statistics:', error);
+        return null;
+    }
+    }
+
+    function createDailyViewsChart(data) {
+      const ctx = document.getElementById('dailyViewsChart').getContext('2d');
+      
+      if (dailyViewsChart) {
+        dailyViewsChart.destroy();
+      }
+      
+      const colors = [
+        'rgba(229, 9, 20, 0.8)',
+        'rgba(255, 107, 107, 0.8)',
+        'rgba(255, 165, 0, 0.8)',
+        'rgba(75, 192, 192, 0.8)',
+        'rgba(153, 102, 255, 0.8)'
+      ];
+      
+      const datasets = data.profileViews.map((profile, index) => ({
+        label: profile.profileName,
+        data: profile.dailyViews,
+        backgroundColor: colors[index % colors.length],
+        borderColor: colors[index % colors.length].replace('0.8', '1'),
+        borderWidth: 2,
+        borderRadius: 5,
+        hoverBackgroundColor: colors[index % colors.length].replace('0.8', '1')
+      }));
+      
+      dailyViewsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.dates,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: '#fff',
+                font: {
+                  size: 12
+                },
+                padding: 15
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              borderColor: '#e50914',
+              borderWidth: 1,
+              padding: 12,
+              displayColors: true,
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y + ' צפיות';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              stacked: false,
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: '#999'
+              }
+            },
+            y: {
+              stacked: false,
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: '#999',
+                callback: function(value) {
+                  return value;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function createGenreChart(data) {
+      const ctx = document.getElementById('genreChart').getContext('2d');
+      
+      if (genreChart) {
+        genreChart.destroy();
+      }
+      
+      const colors = [
+        'rgba(229, 9, 20, 0.9)',
+        'rgba(255, 107, 107, 0.9)',
+        'rgba(255, 165, 0, 0.9)',
+        'rgba(75, 192, 192, 0.9)',
+        'rgba(153, 102, 255, 0.9)',
+        'rgba(255, 206, 86, 0.9)',
+        'rgba(54, 162, 235, 0.9)',
+        'rgba(255, 99, 132, 0.9)'
+      ];
+      
+      genreChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: data.genres,
+          datasets: [{
+            data: data.viewCounts,
+            backgroundColor: colors,
+            borderColor: '#141414',
+            borderWidth: 2,
+            hoverOffset: 15
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                color: '#fff',
+                font: {
+                  size: 12
+                },
+                padding: 15,
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  if (data.labels.length && data.datasets.length) {
+                    return data.labels.map((label, i) => {
+                      const value = data.datasets[0].data[i];
+                      const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                      const percentage = ((value / total) * 100).toFixed(1);
+                      return {
+                        text: `${label} (${percentage}%)`,
+                        fillStyle: data.datasets[0].backgroundColor[i],
+                        hidden: false,
+                        index: i
+                      };
+                    });
+                  }
+                  return [];
+                }
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              borderColor: '#e50914',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return `${label}: ${value} צפיות (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function displayStatsSummary(data) {
+      const summaryContainer = document.getElementById('statsSummary');
+      
+      const totalViews = data.profileViews.reduce((sum, profile) => 
+        sum + profile.dailyViews.reduce((a, b) => a + b, 0), 0
+      );
+      
+      const totalProfiles = data.profileViews.length;
+      const totalGenres = data.genreStats.genres.length;
+      const avgViewsPerDay = (totalViews / data.dates.length).toFixed(1);
+      
+      summaryContainer.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${totalViews}</div>
+          <div class="stat-label">סך הצפיות</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${totalProfiles}</div>
+          <div class="stat-label">פרופילים פעילים</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${totalGenres}</div>
+          <div class="stat-label">ז'אנרים נצפים</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${avgViewsPerDay}</div>
+          <div class="stat-label">ממוצע צפיות ליום</div>
+        </div>
+      `;
+    }
+
+    async function loadStatistics() {
+      const loadingMessage = document.getElementById('loadingMessage');
+      const errorMessage = document.getElementById('errorMessage');
+      const statsContent = document.getElementById('statsContent');
+      
+      const data = await fetchStatistics();
+      
+      if (!data) {
+        loadingMessage.style.display = 'none';
+        errorMessage.textContent = 'אירעה שגיאה בטעינת הנתונים. אנא נסה שוב מאוחר יותר.';
+        errorMessage.style.display = 'block';
+        return;
+      }
+      
+      if (!data.profileViews || data.profileViews.length === 0) {
+        loadingMessage.style.display = 'none';
+        errorMessage.textContent = 'אין נתוני צפייה זמינים עדיין. התחל לצפות בתכנים כדי לראות סטטיסטיקות!';
+        errorMessage.style.display = 'block';
+        return;
+      }
+      
+      loadingMessage.style.display = 'none';
+      statsContent.style.display = 'block';
+      
+      displayStatsSummary(data);
+      createDailyViewsChart(data.dailyViewsData);
+      createGenreChart(data.genreStats);
+    }
+
+    loadStatistics();
+  </script>
+</body>
+</html>
