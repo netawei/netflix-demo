@@ -358,6 +358,36 @@
       font-weight: 600;
     }
 
+    .episode-progress-container {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .episode-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #e50914, #f40612);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px rgba(229, 9, 20, 0.6);
+    }
+
+    .episode-info-text {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .episode-duration {
+      font-size: 10px;
+      color: #888;
+      margin-left: 8px;
+    }
+
     /* Icon Button Styling */
     .icon-btn {
       width: 44px;
@@ -650,8 +680,24 @@
   }
 }
 
-function buildEpisodesDropdown(content, dropdownMenu) {
+async function buildEpisodesDropdown(content, dropdownMenu) {
   dropdownMenu.innerHTML = '';
+  
+  // Fetch episode progress for all episodes
+  let episodeProgressData = {};
+  if (userId) {
+    try {
+      const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${contentId}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        episodeProgressData = await response.json();
+      }
+    } catch (error) {
+      console.error('Error loading episode progress:', error);
+    }
+  }
   
   content.seasons.forEach(season => {
     const seasonGroup = document.createElement('div');
@@ -679,10 +725,45 @@ function buildEpisodesDropdown(content, dropdownMenu) {
         episodeItem.classList.add('current');
       }
       
-      const episodeInfo = document.createElement('span');
-      episodeInfo.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
+      // Find progress for this episode
+      const episodeProgress = (episodeProgressData.episodeProgress || []).find(
+        progress => progress.seasonNumber === season.seasonNumber && 
+                   progress.episodeNumber === ep.episodeNumber
+      );
       
-      episodeItem.appendChild(episodeInfo);
+      const progress = episodeProgress?.progress || 0;
+      const duration = ep.duration || 0;
+      const progressPercentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
+      
+      // Create episode info container
+      const episodeInfoDiv = document.createElement('div');
+      episodeInfoDiv.classList.add('episode-info-text');
+      
+      const episodeTitle = document.createElement('span');
+      episodeTitle.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
+      
+      const episodeDuration = document.createElement('span');
+      episodeDuration.classList.add('episode-duration');
+      if (duration > 0) {
+        episodeDuration.textContent = formatPlaybackTime(duration);
+      }
+      
+      episodeInfoDiv.appendChild(episodeTitle);
+      episodeInfoDiv.appendChild(episodeDuration);
+      episodeItem.appendChild(episodeInfoDiv);
+      
+      // Add progress bar if there's any progress
+      if (progressPercentage > 0) {
+        const progressContainer = document.createElement('div');
+        progressContainer.classList.add('episode-progress-container');
+        
+        const progressBar = document.createElement('div');
+        progressBar.classList.add('episode-progress-bar');
+        progressBar.style.width = `${progressPercentage}%`;
+        
+        progressContainer.appendChild(progressBar);
+        episodeItem.appendChild(progressContainer);
+      }
       
       episodeItem.addEventListener('click', () => {
         navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
