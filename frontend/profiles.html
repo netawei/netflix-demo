@@ -349,6 +349,7 @@
   </main>
 
   <script>
+(function () {
     const BACKEND_URL = localStorage.getItem("BackendURL");
     const profilesContainer = document.getElementById("profiles");
     const API_BASE_URL = BACKEND_URL+ '/api/users';
@@ -362,9 +363,17 @@
     let profileToDelete = null;
 
     const userId = localStorage.getItem("userId");
+    const isAdmin = localStorage.getItem("isAdmin") === "true";
+
     if (!userId) {
       alert("אנא התחבר תחילה");
       window.location.href = "index.html";
+    }
+
+    if (isAdmin) {
+      localStorage.removeItem("activeProfile");
+      window.location.href = "admin-dashboard.html";
+      return;
     }
 
     function isAvatarUrl(avatar) {
@@ -820,32 +829,15 @@
       }
     }
     
+    if (localStorage.getItem("isAdmin") === "true") {
+      return;
+    }
     renderProfiles();
     
-    const checkAdminStatus = () => {
-      const isAdmin = localStorage.getItem("isAdmin") === "true";
-      console.log('isAdmin from localStorage:', isAdmin);
-      
-      if (isAdmin) {
-        const buttonsContainer = document.querySelector('.buttons-container');
-        
-        if (buttonsContainer) {
-          const adminBtn = document.createElement('button');
-          adminBtn.className = 'btn-admin';
-          adminBtn.textContent = 'הוספת תוכן';
-          adminBtn.onclick = () => {
-            window.location.href = 'add-content.html';
-          };
-          
-          buttonsContainer.appendChild(adminBtn);
-          console.log('Admin button added');
-        }
-      }
-    };
-
     setTimeout(() => {
-      checkAdminStatus();
+      renderProfiles();
     }, 100);
+})();
   </script>
 </body>
 </html>
