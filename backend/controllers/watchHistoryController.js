@@ -1,19 +1,22 @@
 const WatchHistory = require('../models/watchHistory');
 
 exports.createWatchHistory = async (req, res) => {
-  try {
-    const { user, content } = req.body;
-
-    const exists = await WatchHistory.findOne({ user, content });
-    if (exists) return res.status(400).json({ message: 'Already exists' });
-
-    const record = new WatchHistory({ user, content });
-    await record.save();
-    res.status(201).json(record);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    try {
+      const { user, profile, content } = req.body;
+      console.log('Received profile:', profile); 
+      const exists = await WatchHistory.findOne({ user, content });
+      if (exists) return res.status(400).json({ message: 'Already exists' });
+      const record = new WatchHistory({ 
+        user, profile, content 
+      });
+      
+      await record.save();
+      console.log('Saved record:', record); 
+      res.status(201).json(record);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  };
 
 exports.getAllHistories = async (req, res) => {
   try {

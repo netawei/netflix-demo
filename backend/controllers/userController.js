@@ -597,3 +597,78 @@ exports.deleteProfile = async (req, res) => {
       profiles: user.profiles
     });
 }
+
+exports.getStatistics = async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const user = await User.findById(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // נתונים של 7 ימים אחרונים
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 6);
+  
+      // מביא את כל ההיסטוריה של הצפייה
+      const watchHistory = await WatchHistory.find({
+        user: userId,
+        lastWatchedAt: { $gte: startDate, $lte: endDate }
+      }).populate('content');
+  
+      // יצירת מערך תאריכים
+      const dates = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        dates.push(date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }));
+      }
+  
+      // ספירת צפיות לפי פרופיל ויום
+      const profileViews = user.profiles.map(profile => {
+        const dailyViews = dates.map(date => {
+          const dayViews = watchHistory.filter(w => {
+            const watchDate = new Date(w.lastWatchedAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+            return w.profile?.name === profile.name && watchDate === date;
+          }).length;
+          return dayViews;
+        });
+  
+        return {
+          profileName: profile.name,
+          dailyViews: dailyViews
+        };
+      });
+  
+      // ספירת צפיות לפי ז'אנר
+      const genreCounts = {};
+      watchHistory.forEach(watch => {
+        if (watch.content && watch.content.genre) {
+          watch.content.genre.forEach(g => {
+            genreCounts[g] = (genreCounts[g] || 0) + 1;
+          });
+        }
+      });
+  
+      const genreStats = {
+        genres: Object.keys(genreCounts),
+        viewCounts: Object.values(genreCounts)
+      };
+  
+      res.json({
+        dates: dates,
+        profileViews: profileViews,
+        dailyViewsData: {
+          dates: dates,
+          profileViews: profileViews
+        },
+        genreStats: genreStats
+      });
+  
+    } catch (error) {
+      console.error('Error getting statistics:', error);
+      res.status(500).json({ message: 'Error fetching statistics' });
+    }
+  };

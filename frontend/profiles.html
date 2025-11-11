@@ -264,6 +264,35 @@
       gap: 10px;
       justify-content: center;
     }
+    .stats-fab {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1e88e5, #1565c0);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(30, 136, 229, 0.4);
+      transition: transform 0.3s, box-shadow 0.3s;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .stats-fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(30, 136, 229, 0.6);
+    }
+
+    .stats-fab svg {
+      width: 28px;
+      height: 28px;
+      fill: white;
+    }
     
   </style>
 </head>
