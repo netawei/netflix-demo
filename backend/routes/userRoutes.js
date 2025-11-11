@@ -7,7 +7,9 @@ const {
   getUserProfiles, 
   addProfile,
   toggleContentLike,
+  toggleFavoriteContent,
   getProfileLikedContent,
+  getProfileFavorites,
   getRecommendations,
   updateProfile,
   deleteProfile
@@ -22,6 +24,8 @@ router.put('/:userId/profiles/:profileId', updateProfile)
 router.delete('/:userId/profiles/:profileId', deleteProfile)
 router.post('/profiles/like', toggleContentLike);
 router.post('/profiles/liked-content', getProfileLikedContent);
+router.post('/profiles/favorite', toggleFavoriteContent);
+router.post('/profiles/favorites', getProfileFavorites);
 router.post('/profiles/recommendations', getRecommendations);
 
 module.exports = router;

@@ -404,6 +404,7 @@
   <script>
     const isAdmin = localStorage.getItem("isAdmin") === "true";
     const userId = localStorage.getItem("userId");
+    const BACKEND_URL= localStorage.getItem("BackendURL");
     
     if (!isAdmin || !userId) {
       alert("אין לך הרשאות לגשת לעמוד זה");
@@ -725,7 +726,7 @@
           contentData.seasons = seasons;
         }
         formData.append('data', JSON.stringify(contentData));
-        const response = await fetch('http://localhost:5001/api/content', {
+        const response = await fetch(BACKEND_URL+'/api/content', {
           method: 'POST',
           credentials: 'include',
           body: formData
