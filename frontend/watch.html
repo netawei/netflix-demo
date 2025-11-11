@@ -145,9 +145,6 @@
       color: var(--text);
     }
     .play-pause-btn {
-      width: 54px !important;
-      height: 54px !important;
-      font-size: 24px !important;
       background: linear-gradient(135deg, #e50914, #b00610) !important;
     }
 
@@ -304,14 +301,14 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 12px;
-      margin-top: 4px;
+      margin-top: 8px;
       max-height: 400px;
       overflow-y: auto;
       backdrop-filter: blur(10px);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
       position: absolute;
       left: 0;
-      top: 100%;
+      top: calc(100% + 4px);
       width: 300px;
       z-index: 1000;
     }
@@ -431,6 +428,8 @@
             <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
               Episodes ▼
             </button>
+            <!-- Move dropdown inside the relative div -->
+            <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
           </div>
         </div>
         <div class="metadata" id="contentMeta"></div>
@@ -455,14 +454,14 @@
           <strong>Status:</strong> <span id="statusText">Preparing video...</span>
         </div>
         <div class="status-actions">
-          <button class="btn-secondary icon-btn" id="restartBtn" title="Restart">⟲</button>
-          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
-            <span class="icon-wrapper">⟲<span class="icon-number">10</span></span>
-          </button>
-          <button class="btn-primary icon-btn play-pause-btn" id="resumeBtn" title="Play">▶</button>
           <button class="btn-secondary icon-btn" id="forward10Btn" title="Forward 10s">
             <span class="icon-wrapper">⟳<span class="icon-number">10</span></span>
           </button>
+          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
+            <span class="icon-wrapper">⟲<span class="icon-number">10</span></span>
+          </button>
+          <button class="btn-secondary icon-btn" id="restartBtn" title="Restart">⟲</button>
+          <button class="btn-primary icon-btn play-pause-btn" id="resumeBtn" title="Play">▶</button>
         </div>
       </div>
     </section>
@@ -618,7 +617,7 @@
     }
   });
   
-  // Previous episode button (arrow left) - insert before restart button
+  // Previous episode button - insert before play/pause button
   if (hasPrevious) {
     const prevBtn = document.createElement('button');
     prevBtn.classList.add('btn-secondary', 'icon-btn');
@@ -628,12 +627,12 @@
       const prevEpisode = season.episodes[currentIndex - 1];
       navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
     });
-    // Insert at the very beginning (before restart button)
-    const restartBtn = document.getElementById('restartBtn');
-    statusActions.insertBefore(prevBtn, restartBtn);
+    // Insert before play/pause button
+    const playPauseBtn = document.getElementById('resumeBtn');
+    statusActions.insertBefore(prevBtn, playPauseBtn);
   }
 
-  // Next episode button - always add last
+ // Next episode button - insert after previous button
   if (hasNext) {
     const nextBtn = document.createElement('button');
     nextBtn.classList.add('btn-primary', 'icon-btn');
@@ -645,8 +644,9 @@
       const nextEpisode = season.episodes[currentIndex + 1];
       navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
     });
-    // Append at the very end
-    statusActions.appendChild(nextBtn);
+    // Insert as second button (after previous, before forward)
+    const forwardBtn = document.getElementById('forward10Btn');
+    statusActions.insertBefore(nextBtn, forwardBtn);
   }
 }
 
