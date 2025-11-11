@@ -634,8 +634,48 @@
       return `${minutes}:${String(secs).padStart(2, '0')}`;
     }
 
-    function setupWatchButtons(container, item) {
+    // Add this function somewhere in your <script> section, before setupWatchButtons
 
+    async function openEpisodesOverlay(item) {
+      // Navigate to a page that shows episodes, or open a modal
+      // For now, let's navigate to the first episode
+      
+      if (!item.id) {
+        alert('לא ניתן לטעון פרקים');
+        return;
+      }
+
+      try {
+        // Fetch series data to get episodes
+        const response = await fetch(`${BACKEND_URL}/api/content/${item.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch series data');
+        }
+        
+        const seriesData = await response.json();
+        
+        // Check if we have episodes
+        if (!seriesData.seasons || seriesData.seasons.length === 0) {
+          alert('לא נמצאו עונות לסדרה זו');
+          return;
+        }
+
+        // Navigate to watch page with first episode or current episode
+        const params = new URLSearchParams({
+          contentId: item.id,
+          seasonNumber: item.currentEpisode?.seasonNumber || 1,
+          episodeNumber: item.currentEpisode?.episodeNumber || 1
+        });
+        
+        window.location.href = `watch.html?${params.toString()}`;
+        
+      } catch (error) {
+        console.error('Error loading episodes:', error);
+        alert('שגיאה בטעינת הפרקים');
+      }
+    }
+
+    function setupWatchButtons(container, item) {
       const seriesBtn = container.querySelector('.btn-watch-series');
       if (seriesBtn) {
         seriesBtn.addEventListener('click', (e) => {
@@ -651,11 +691,24 @@
           startWatch(item, true);
         });
       }
-      const continueBtn = container.querySelector('.btn-continue-watch');
+      
+      // Handle both continue buttons (series and movie)
+      const continueBtn = container.querySelector('.btn-continue-watch, .btn-continue-series');
       if (continueBtn) {
         continueBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          startWatch(item, false);
+          if (item.type === 'series' && item.currentEpisode) {
+            // Continue from current episode for series
+            const params = new URLSearchParams({
+              contentId: item.id,
+              seasonNumber: item.currentEpisode.seasonNumber,
+              episodeNumber: item.currentEpisode.episodeNumber
+            });
+            window.location.href = `watch.html?${params.toString()}`;
+          } else {
+            // Continue from saved progress for movies
+            startWatch(item, false);
+          }
         });
       }
 
@@ -857,19 +910,31 @@
         progressText = `<p class="item-progress-text">Saved at ${formatPlaybackTime(item.progress)}</p>`;
       }
 
+      // For series: only show המשך צפייה if there's a current episode with progress
+      // For movies: only show המשך צפייה if there's progress
+      const showContinueButton = isSeries 
+        ? (item.currentEpisode && hasProgress)
+        : hasProgress;
+
       const watchSection = `
         <div class="item-watch-block">
           <div class="item-actions">
-            <button class="btn-watch ${isSeries ? 'btn-watch-series' : 'btn-start-watch'}" data-content="${item.id}" data-type="${item.type || 'movie'}">
-              ${hasProgress ? 'התחל מהתחלה' : 'התחל צפייה'}
-            </button>
-            ${hasProgress ? `<button class="btn-watch-secondary ${isSeries ? 'btn-restart-series' : 'btn-continue-watch'}" data-content="${item.id}">המשך צפיה</button>` : ''}
+            ${!showContinueButton ? `
+              <button class="btn-watch ${isSeries ? 'btn-watch-series' : 'btn-start-watch'}" data-content="${item.id}" data-type="${item.type || 'movie'}">
+                התחל צפייה
+              </button>
+            ` : `
+              <button class="btn-watch ${isSeries ? 'btn-continue-series' : 'btn-continue-watch'}" data-content="${item.id}">
+                המשך צפייה
+              </button>
+              <button class="btn-watch-secondary ${isSeries ? 'btn-restart-series' : 'btn-restart-movie'}" data-content="${item.id}">
+                התחל צפייה מחדש
+              </button>
+            `}
           </div>
-          ${progressDisplay}
           ${progressText}
           ${favoriteButton}
           <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
-          <p><strong>Likes:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
             <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
           </button>
