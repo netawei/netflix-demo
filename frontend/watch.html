@@ -75,10 +75,6 @@
       flex-direction: column;
       gap: 12px;
     }
-    .content-header > div:first-child {
-      position: relative;
-      z-index: 10;
-    }
     .content-header h1 {
       margin: 0;
       font-size: 26px;
@@ -130,25 +126,18 @@
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
-      align-items: center;
-      position: relative;
     }
     .status-actions button {
-      padding: 12px 16px;
-      border-radius: 8px;
+      padding: 8px 14px;
+      border-radius: 6px;
       border: none;
       cursor: pointer;
       font-weight: bold;
-      transition: transform 0.2s, opacity 0.2s, background 0.2s;
-      min-width: 55px;
-      min-height: 55px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
+      transition: transform 0.2s, opacity 0.2s;
     }
     .status-actions .btn-primary {
-      font-size: 28px !important;
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: var(--text);
     }
     .status-actions .btn-secondary {
       background: transparent;
@@ -159,10 +148,6 @@
       transform: translateY(-1px);
       opacity: 0.92;
     }
-    .status-actions button:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
     .error-banner {
       background: rgba(229, 9, 20, 0.15);
       border: 1px solid rgba(229, 9, 20, 0.4);
@@ -170,83 +155,6 @@
       padding: 12px 16px;
       border-radius: 10px;
       font-size: 14px;
-    }
-    .episodes-dropdown-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: #fff;
-      padding: 12px 18px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: background 0.2s;
-      min-height: 50px;
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      width: auto;
-      font-weight: bold;
-    }
-    .episodes-dropdown-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-    .episodes-dropdown-menu {
-      position: absolute;
-      top: calc(100% + 5px);
-      left: 0;
-      right: auto;
-      background: #181818;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      width: 350px;
-      max-height: 400px;
-      overflow-y: auto;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
-      z-index: 1000;
-      display: none;
-    }
-    .season-group {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .season-header {
-      padding: 12px 16px;
-      font-weight: bold;
-      color: #e50914;
-      background: rgba(229, 9, 20, 0.1);
-      cursor: pointer;
-    }
-    .season-header:hover {
-      background: rgba(229, 9, 20, 0.2);
-    }
-    .episodes-list-dropdown {
-      display: none;
-    }
-    .episode-item-dropdown {
-      padding: 10px 16px;
-      cursor: pointer;
-      transition: background 0.2s;
-      border-right: 3px solid transparent;
-    }
-    .episode-item-dropdown:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-    .episode-item-dropdown.current {
-      background: rgba(229, 9, 20, 0.2);
-      border-right-color: #e50914;
-    }
-    .episodes-dropdown-menu::-webkit-scrollbar {
-      width: 8px;
-    }
-    .episodes-dropdown-menu::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-    }
-    .episodes-dropdown-menu::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-    }
-    .episodes-dropdown-menu::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.5);
     }
     @media (max-width: 768px) {
       main {
@@ -298,6 +206,7 @@
       color: white;
     }
 
+    /* Loading Overlay */
     .loading-overlay {
       position: fixed;
       top: 0;
@@ -367,6 +276,7 @@
   </style>
 </head>
 <body>
+  <!-- Loading Overlay -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="loading-content">
       <div class="loading-spinner"></div>
@@ -386,15 +296,15 @@
       <div class="content-header">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
           <h1 id="contentTitle">...</h1>
-          <div style="position: relative;">
-            <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
-              Episodes ▼
-            </button>
-            <div id="episodesDropdown" class="episodes-dropdown-menu"></div>
-          </div>
+          <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
+            Episodes ▼
+          </button>
         </div>
         <div class="metadata" id="contentMeta"></div>
       </div>
+      
+      <!-- Dropdown menu -->
+      <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
       <p class="description" id="contentDescription"></p>
       <div id="errorBanner" class="error-banner" style="display:none;"></div>
       <div class="video-wrapper">
@@ -412,37 +322,10 @@
           <strong>Status:</strong> <span id="statusText">Preparing video...</span>
         </div>
         <div class="status-actions">
-          <button class="btn-primary" id="playPauseMainBtn" title="Play/Pause">▶</button>
-          <button class="btn-secondary" id="forward10Btn" title="Forward 10s">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M28 4v8h-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M28 12c-2-4-6-8-12-8-7 0-12 5-12 12s5 12 12 12c5 0 9-3 11-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <text x="16" y="21" text-anchor="middle" fill="currentColor" font-size="10" font-weight="600" font-family="Arial, sans-serif">10</text>
-            </svg>
-          </button>
-          <button class="btn-secondary" id="rewind10Btn" title="Rewind 10s">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M4 4v8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M4 12c2-4 6-8 12-8 7 0 12 5 12 12s-5 12-12 12c-5 0-9-3-11-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <text x="16" y="21" text-anchor="middle" fill="currentColor" font-size="10" font-weight="600" font-family="Arial, sans-serif">10</text>
-            </svg>
-          </button>
-          <button class="btn-secondary" id="nextEpisodeMainBtn" title="Next Episode" style="display: none;">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 18h2V6h-2M6 18l8.5-6L6 6z"/>
-            </svg>
-          </button>
-          <button class="btn-secondary" id="prevEpisodeMainBtn" title="Previous Episode" style="display: none;">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-            </svg>
-          </button>
-          <button class="btn-secondary" id="restartBtn" title="Restart">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-            </svg>
-          </button>
+          <button class="btn-secondary" id="rewind10Btn">↺ Rewind 10s</button>
+          <button class="btn-secondary" id="forward10Btn">Forward 10s ↻</button>
+          <button class="btn-secondary" id="restartBtn">Restart</button>
+          <button class="btn-primary" id="resumeBtn">Resume</button>
         </div>
       </div>
     </section>
@@ -463,12 +346,10 @@
     const rewindBtn = document.getElementById('rewind10Btn');
     const forwardBtn = document.getElementById('forward10Btn');
     const restartBtn = document.getElementById('restartBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
     const backBtn = document.getElementById('backBtn');
     const errorBanner = document.getElementById('errorBanner');
     const WATCH_HISTORY_BASE = BACKEND_URL + '/api/watchHistory';
-    const playPauseMainBtn = document.getElementById('playPauseMainBtn');
-    const prevEpisodeMainBtn = document.getElementById('prevEpisodeMainBtn');
-    const nextEpisodeMainBtn = document.getElementById('nextEpisodeMainBtn');
 
     if (!contentId) {
       alert('No content found to watch');
@@ -509,22 +390,15 @@
       setTimeout(() => hideLoadingOverlay(), 500);
     });
 
-    playPauseMainBtn.addEventListener('click', () => {
-      if (videoPlayer.paused) {
+    resumeBtn.addEventListener('click', () => {
+      if (currentProgress > 0 && currentProgress < videoPlayer.duration) {
+        showLoadingOverlay('Resuming...');
+        videoPlayer.currentTime = currentProgress;
+        statusText.textContent = 'Resumed from last position';
         videoPlayer.play();
-        playPauseMainBtn.textContent = '⏸';
-      } else {
-        videoPlayer.pause();
-        playPauseMainBtn.textContent = '▶';
+        // Hide loading when video starts
+        setTimeout(() => hideLoadingOverlay(), 500);
       }
-    });
-
-    videoPlayer.addEventListener('play', () => {
-      playPauseMainBtn.textContent = '⏸';
-    });
-
-    videoPlayer.addEventListener('pause', () => {
-      playPauseMainBtn.textContent = '▶';
     });
 
     async function loadContentDetails() {
@@ -536,6 +410,7 @@
         const content = await response.json();
         
         if (isEpisode) {
+          // Handle series episode
           const season = content.seasons.find(s => s.seasonNumber == seasonNumber);
           if (!season) throw new Error('Season not found');
           
@@ -559,8 +434,10 @@
           videoPlayer.src = episode.videoUrl;
           contentDuration = episode.duration || 0;
           
+          // Add episode navigation buttons
           addEpisodeNavigation(content, season, episode);
         } else {
+          // Handle movie
           document.getElementById('contentTitle').textContent = content.title || 'Untitled';
           renderMetadata(content);
           document.getElementById('contentDescription').textContent = 
@@ -578,119 +455,119 @@
     }
 
     function addEpisodeNavigation(content, season, currentEpisode) {
-      const currentIndex = season.episodes.findIndex(e => e.episodeNumber == episodeNumber);
-      const hasPrevious = currentIndex > 0;
-      const hasNext = currentIndex < season.episodes.length - 1;
+  const statusActions = document.querySelector('.status-actions');
+  
+  const currentIndex = season.episodes.findIndex(e => e.episodeNumber == episodeNumber);
+  const hasPrevious = currentIndex > 0;
+  const hasNext = currentIndex < season.episodes.length - 1;
+  
+  // Setup episodes dropdown button
+  const dropdownBtn = document.getElementById('episodesDropdownBtn');
+  const dropdownMenu = document.getElementById('episodesDropdown');
+  
+  dropdownBtn.style.display = 'inline-block';
+  
+  // Build dropdown content
+  buildEpisodesDropdown(content, dropdownMenu);
+  
+  // Toggle dropdown on click
+  dropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = dropdownMenu.style.display === 'block';
+    dropdownMenu.style.display = isVisible ? 'none' : 'block';
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+      dropdownMenu.style.display = 'none';
+    }
+  });
+  
+  // Previous episode button
+  if (hasPrevious) {
+    const prevBtn = document.createElement('button');
+    prevBtn.classList.add('btn-secondary');
+    prevBtn.textContent = '← Previous Episode';
+    prevBtn.addEventListener('click', () => {
+      const prevEpisode = season.episodes[currentIndex - 1];
+      navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
+    });
+    statusActions.prepend(prevBtn);
+  }
+  
+  // Next episode button
+  if (hasNext) {
+    const nextBtn = document.createElement('button');
+    nextBtn.classList.add('btn-primary');
+    nextBtn.textContent = 'Next Episode →';
+    nextBtn.id = 'nextEpisodeBtn';
+    nextBtn.style.display = 'none';
+    nextBtn.addEventListener('click', () => {
+      const nextEpisode = season.episodes[currentIndex + 1];
+      navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
+    });
+    statusActions.appendChild(nextBtn);
+  }
+}
+
+function buildEpisodesDropdown(content, dropdownMenu) {
+  dropdownMenu.innerHTML = '';
+  
+  content.seasons.forEach(season => {
+    const seasonGroup = document.createElement('div');
+    seasonGroup.classList.add('season-group');
+    
+    const seasonHeader = document.createElement('div');
+    seasonHeader.classList.add('season-header');
+    seasonHeader.textContent = `Season ${season.seasonNumber} (${season.episodes.length} episodes)`;
+    
+    const episodesList = document.createElement('div');
+    episodesList.classList.add('episodes-list-dropdown');
+    episodesList.style.display = season.seasonNumber == seasonNumber ? 'block' : 'none';
+    
+    seasonHeader.addEventListener('click', () => {
+      const isVisible = episodesList.style.display === 'block';
+      episodesList.style.display = isVisible ? 'none' : 'block';
+    });
+    
+    season.episodes.forEach(ep => {
+      const episodeItem = document.createElement('div');
+      episodeItem.classList.add('episode-item-dropdown');
       
-      const dropdownBtn = document.getElementById('episodesDropdownBtn');
-      const dropdownMenu = document.getElementById('episodesDropdown');
-      
-      dropdownBtn.style.display = 'inline-flex';
-      
-      buildEpisodesDropdown(content, dropdownMenu);
-      
-      dropdownBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = dropdownMenu.style.display === 'block';
-        dropdownMenu.style.display = isVisible ? 'none' : 'block';
-      });
-      
-      document.addEventListener('click', (e) => {
-        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
-          dropdownMenu.style.display = 'none';
-        }
-      });
-      
-      if (hasPrevious || (currentIndex === 0 && seasonNumber > 1)) {
-        prevEpisodeMainBtn.style.display = 'flex';
-        prevEpisodeMainBtn.addEventListener('click', () => {
-          if (currentIndex > 0) {
-            const prevEpisode = season.episodes[currentIndex - 1];
-            navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
-          } else if (seasonNumber > 1) {
-            const prevSeasonNum = parseInt(seasonNumber) - 1;
-            const prevSeason = content.seasons.find(s => s.seasonNumber == prevSeasonNum);
-            if (prevSeason && prevSeason.episodes.length > 0) {
-              const lastEpisode = prevSeason.episodes[prevSeason.episodes.length - 1];
-              navigateToEpisode(contentId, prevSeasonNum, lastEpisode.episodeNumber);
-            }
-          }
-        });
+      // Check if this is the current episode
+      if (season.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber) {
+        episodeItem.classList.add('current');
       }
       
-      if (hasNext || (currentIndex === season.episodes.length - 1 && seasonNumber < content.seasons.length)) {
-        nextEpisodeMainBtn.style.display = 'flex';
-        nextEpisodeMainBtn.addEventListener('click', () => {
-          if (currentIndex < season.episodes.length - 1) {
-            const nextEpisode = season.episodes[currentIndex + 1];
-            navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
-          } else {
-            const nextSeasonNum = parseInt(seasonNumber) + 1;
-            const nextSeason = content.seasons.find(s => s.seasonNumber == nextSeasonNum);
-            if (nextSeason && nextSeason.episodes.length > 0) {
-              navigateToEpisode(contentId, nextSeasonNum, nextSeason.episodes[0].episodeNumber);
-            }
-          }
-        });
-      }
-    }
-
-    function buildEpisodesDropdown(content, dropdownMenu) {
-      dropdownMenu.innerHTML = '';
+      const episodeInfo = document.createElement('span');
+      episodeInfo.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
       
-      content.seasons.forEach(season => {
-        const seasonGroup = document.createElement('div');
-        seasonGroup.classList.add('season-group');
-        
-        const seasonHeader = document.createElement('div');
-        seasonHeader.classList.add('season-header');
-        seasonHeader.textContent = `Season ${season.seasonNumber} (${season.episodes.length} episodes)`;
-        
-        const episodesList = document.createElement('div');
-        episodesList.classList.add('episodes-list-dropdown');
-        episodesList.style.display = season.seasonNumber == seasonNumber ? 'block' : 'none';
-        
-        seasonHeader.addEventListener('click', () => {
-          const isVisible = episodesList.style.display === 'block';
-          episodesList.style.display = isVisible ? 'none' : 'block';
-        });
-        
-        season.episodes.forEach(ep => {
-          const episodeItem = document.createElement('div');
-          episodeItem.classList.add('episode-item-dropdown');
-          
-          if (season.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber) {
-            episodeItem.classList.add('current');
-          }
-          
-          const episodeInfo = document.createElement('span');
-          episodeInfo.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
-          
-          episodeItem.appendChild(episodeInfo);
-          
-          episodeItem.addEventListener('click', () => {
-            navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
-          });
-          
-          episodesList.appendChild(episodeItem);
-        });
-        
-        seasonGroup.appendChild(seasonHeader);
-        seasonGroup.appendChild(episodesList);
-        dropdownMenu.appendChild(seasonGroup);
+      episodeItem.appendChild(episodeInfo);
+      
+      episodeItem.addEventListener('click', () => {
+        navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
       });
-    }
+      
+      episodesList.appendChild(episodeItem);
+    });
+    
+    seasonGroup.appendChild(seasonHeader);
+    seasonGroup.appendChild(episodesList);
+    dropdownMenu.appendChild(seasonGroup);
+  });
+}
 
-    function navigateToEpisode(contentId, seasonNum, episodeNum) {
-      showLoadingOverlay('Loading episode...');
-      const params = new URLSearchParams({
-        contentId: contentId,
-        seasonNumber: seasonNum,
-        episodeNumber: episodeNum,
-        restart: '0'
-      });
-      window.location.href = `watch.html?${params.toString()}`;
-    }
+function navigateToEpisode(contentId, seasonNum, episodeNum) {
+  showLoadingOverlay('Loading next episode...');
+  const params = new URLSearchParams({
+    contentId: contentId,
+    seasonNumber: seasonNum,
+    episodeNumber: episodeNum,
+    restart: '0'
+  });
+  window.location.href = `watch.html?${params.toString()}`;
+}
 
     function renderMetadata(content) {
       const meta = [];
@@ -709,11 +586,13 @@
       statusText.textContent = 'Error loading content';
       videoPlayer.style.display = 'none';
       restartBtn.disabled = true;
+      resumeBtn.disabled = true;
     }
 
     async function loadWatchProgress() {
       try {
         if (isEpisode) {
+          // Load episode-specific progress
           const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${contentId}`, {
             method: 'GET',
             credentials: 'include'
@@ -727,6 +606,7 @@
           );
           currentProgress = episodeProgress?.progress || 0;
         } else {
+          // Load movie progress
           const response = await fetch(`${WATCH_HISTORY_BASE}/user/${userId}`, {
             method: 'GET',
             credentials: 'include'
@@ -741,9 +621,11 @@
           });
           currentProgress = entry?.progress || 0;
         }
+        updateResumeButtonState();
       } catch (error) {
         console.error('Watch history load error:', error);
         currentProgress = 0;
+        updateResumeButtonState();
       }
     }
 
@@ -759,6 +641,7 @@
         } else {
           if (restartParam) {
             currentProgress = 0;
+            updateResumeButtonState();
           }
           statusText.textContent = 'Ready to start watching';
         }
@@ -782,7 +665,9 @@
         showRepeatButton();
       });
 
+      // IMPORTANT: Save progress every 10 seconds while playing
       videoPlayer.addEventListener('timeupdate', () => {
+        // Update status text with current time
         if (videoPlayer.currentTime && videoPlayer.duration) {
           const current = formatPlaybackTime(videoPlayer.currentTime);
           const total = formatPlaybackTime(videoPlayer.duration);
@@ -800,7 +685,7 @@
       clearProgressInterval();
       progressInterval = setInterval(() => {
         sendProgressUpdate();
-      }, 10000);
+      }, 10000); // Save every 10 seconds
     }
 
     function clearProgressInterval() {
@@ -817,9 +702,11 @@
         : Math.floor(videoPlayer.currentTime || 0);
 
       currentProgress = progressValue;
+      updateResumeButtonState();
 
       try {
         if (isEpisode) {
+          // Save episode progress
           const completed = progressValue >= (contentDuration * 0.9);
           await fetch(`${WATCH_HISTORY_BASE}/episode-progress`, {
             method: 'PUT',
@@ -838,13 +725,15 @@
             })
           });
           
+          // Show next episode button when episode is about to end
           if (completed || progressValue >= (contentDuration - 30)) {
-            const nextBtn = document.getElementById('nextEpisodeMainBtn');
+            const nextBtn = document.getElementById('nextEpisodeBtn');
             if (nextBtn) {
-              nextBtn.style.display = 'flex';
+              nextBtn.style.display = 'inline-block';
             }
           }
         } else {
+          // Save movie progress
           await fetch(`${WATCH_HISTORY_BASE}/progress`, {
             method: 'PUT',
             headers: {
@@ -891,6 +780,17 @@
       sendProgressUpdate();
     }
 
+    function updateResumeButtonState() {
+      if (currentProgress > 0) {
+        resumeBtn.disabled = false;
+        resumeBtn.textContent = 'Resume from last position';
+      } else {
+        resumeBtn.disabled = true;
+        resumeBtn.textContent = 'No saved position';
+      }
+    }
+
+    // Repeat Button Functions
     function showRepeatButton() {
       const overlay = document.getElementById('repeatOverlay');
       overlay.classList.add('show');
@@ -901,6 +801,7 @@
       overlay.classList.remove('show');
     }
 
+    // Repeat Button Event Listener
     document.getElementById('repeatBtn').addEventListener('click', () => {
       hideRepeatButton();
       videoPlayer.currentTime = 0;
@@ -908,10 +809,12 @@
       sendProgressUpdate(0);
     });
 
+    // Hide repeat button when video starts playing
     videoPlayer.addEventListener('play', () => {
       hideRepeatButton();
     });
 
+    // Loading Overlay Functions
     function showLoadingOverlay(message = 'Loading...') {
       const overlay = document.getElementById('loadingOverlay');
       const text = overlay.querySelector('.loading-text');

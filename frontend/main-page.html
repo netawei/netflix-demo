@@ -575,32 +575,34 @@
     }
 
     async function openEpisodesOverlay(seriesItem) {
-      try {
-        const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesItem.id}`, {
-          method: 'GET',
-          credentials: 'include'
-        });
-        
-        let seasonNumber = 1;
-        let episodeNumber = 1;
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.currentEpisode && data.currentEpisode.seasonNumber && data.currentEpisode.episodeNumber) {
-            seasonNumber = data.currentEpisode.seasonNumber;
-            episodeNumber = data.currentEpisode.episodeNumber;
-          }
-        } else {
-          const seriesResponse = await fetch(`${BACKEND_URL}/api/content/${seriesItem.id}`);
-          if (seriesResponse.ok) {
-            const seriesData = await seriesResponse.json();
-            if (seriesData.seasons && seriesData.seasons.length > 0) {
-              const firstSeason = seriesData.seasons[0];
-              if (firstSeason.episodes && firstSeason.episodes.length > 0) {
-                seasonNumber = firstSeason.seasonNumber;
-                episodeNumber = firstSeason.episodes[0].episodeNumber;
-              }
-            }
+  try {
+    // Load the user's watch history for this series
+    const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesItem.id}`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    
+    let seasonNumber = 1;
+    let episodeNumber = 1;
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // If user has a current episode saved, use that
+      if (data.currentEpisode && data.currentEpisode.seasonNumber && data.currentEpisode.episodeNumber) {
+        seasonNumber = data.currentEpisode.seasonNumber;
+        episodeNumber = data.currentEpisode.episodeNumber;
+      }
+    } else {
+      // No watch history - fetch series data to get first episode
+      const seriesResponse = await fetch(`http://localhost:5001/api/content/${seriesItem.id}`);
+      if (seriesResponse.ok) {
+        const seriesData = await seriesResponse.json();
+        if (seriesData.seasons && seriesData.seasons.length > 0) {
+          const firstSeason = seriesData.seasons[0];
+          if (firstSeason.episodes && firstSeason.episodes.length > 0) {
+            seasonNumber = firstSeason.seasonNumber;
+            episodeNumber = firstSeason.episodes[0].episodeNumber;
           }
         }
         
@@ -623,6 +625,26 @@
         window.location.href = `watch.html?${params.toString()}`;
       }
     }
+    
+    // Navigate directly to watch.html with the episode
+    const params = new URLSearchParams({
+      contentId: seriesItem.id,
+      seasonNumber: seasonNumber,
+      episodeNumber: episodeNumber,
+      restart: '0'  // Don't restart - resume from saved progress
+    });
+    window.location.href = `watch.html?${params.toString()}`;
+    
+  } catch (error) {
+    console.error('Error loading series:', error);
+    // Fallback: open episodes overlay if something goes wrong
+    const params = new URLSearchParams({
+      contentId: seriesItem.id,
+      userId: userId
+    });
+    window.location.href = `episodes-overlay.html?${params.toString()}`;
+  }
+}
 
     function setupFavoriteButton(container, item) {
       const favoriteBtn = container.querySelector('.favorite-btn');
@@ -713,6 +735,9 @@
         return;
       }
       
+      // Show loading overlay
+      showLoadingOverlay(restart ? 'Starting from beginning...' : 'Loading video...');
+      
       const progressToSave = restart ? 0 : (watchHistoryMap[item.id]?.progress || 0);
       try {
         await fetch(`${WATCH_HISTORY_BASE}/progress`, {
@@ -733,6 +758,7 @@
         };
       } catch (error) {
         console.error('Error updating watch progress:', error);
+        hideLoadingOverlay();
         return;
       }
 
