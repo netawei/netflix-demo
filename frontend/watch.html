@@ -273,6 +273,125 @@
         transform: rotate(360deg);
       }
     }
+    /* Dropdown Styling */
+    .episodes-dropdown-btn {
+      background: linear-gradient(135deg, rgba(229, 9, 20, 0.2), rgba(176, 6, 16, 0.2));
+      border: 1px solid rgba(229, 9, 20, 0.5);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .episodes-dropdown-btn:hover {
+      background: linear-gradient(135deg, rgba(229, 9, 20, 0.4), rgba(176, 6, 16, 0.4));
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
+    }
+
+    .episodes-dropdown-menu {
+      background: rgba(20, 20, 20, 0.98);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      position: absolute;
+      right: 28px;
+      top: 60px;
+      width: 300px;
+      z-index: 1000;
+    }
+
+    .season-group {
+      margin-bottom: 16px;
+    }
+
+    .season-header {
+      font-weight: bold;
+      color: var(--primary);
+      padding: 10px 12px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s;
+      border-left: 3px solid var(--primary);
+      background: rgba(229, 9, 20, 0.1);
+    }
+
+    .season-header:hover {
+      background: rgba(229, 9, 20, 0.2);
+    }
+
+    .episodes-list-dropdown {
+      padding-left: 12px;
+      margin-top: 8px;
+    }
+
+    .episode-item-dropdown {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+      border-left: 2px solid transparent;
+    }
+
+    .episode-item-dropdown:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-left-color: var(--primary);
+      transform: translateX(4px);
+    }
+
+    .episode-item-dropdown.current {
+      background: rgba(229, 9, 20, 0.2);
+      border-left-color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Icon Button Styling */
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      padding: 0;
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .icon-btn .icon-number {
+      position: absolute;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    /* Forward and Rewind button number positioning */
+    #rewind10Btn, #forward10Btn {
+      font-size: 24px;
+      position: relative;
+    }
+
+    #rewind10Btn .icon-number,
+    #forward10Btn .icon-number {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    
   </style>
 </head>
 <body>
@@ -322,10 +441,14 @@
           <strong>Status:</strong> <span id="statusText">Preparing video...</span>
         </div>
         <div class="status-actions">
-          <button class="btn-secondary" id="rewind10Btn">↺ Rewind 10s</button>
-          <button class="btn-secondary" id="forward10Btn">Forward 10s ↻</button>
-          <button class="btn-secondary" id="restartBtn">Restart</button>
-          <button class="btn-primary" id="resumeBtn">Resume</button>
+          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
+            ↺<span class="icon-number">10</span>
+          </button>
+          <button class="btn-secondary icon-btn" id="forward10Btn" title="Forward 10s">
+            ↻<span class="icon-number">10</span>
+          </button>
+          <button class="btn-secondary icon-btn" id="restartBtn" title="Restart">⟲</button>
+          <button class="btn-primary icon-btn" id="resumeBtn" title="Resume">▶</button>
         </div>
       </div>
     </section>
@@ -484,29 +607,33 @@
     }
   });
   
-  // Previous episode button
+  // Previous episode button (arrow left) - always add first
   if (hasPrevious) {
     const prevBtn = document.createElement('button');
-    prevBtn.classList.add('btn-secondary');
-    prevBtn.textContent = '← Previous Episode';
+    prevBtn.classList.add('btn-secondary', 'icon-btn');
+    prevBtn.innerHTML = '←';
+    prevBtn.title = 'Previous Episode';
     prevBtn.addEventListener('click', () => {
       const prevEpisode = season.episodes[currentIndex - 1];
       navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
     });
-    statusActions.prepend(prevBtn);
+    // Insert at the very beginning
+    statusActions.insertBefore(prevBtn, statusActions.firstChild);
   }
-  
-  // Next episode button
+
+  // Next episode button (arrow right) - always add last
   if (hasNext) {
     const nextBtn = document.createElement('button');
-    nextBtn.classList.add('btn-primary');
-    nextBtn.textContent = 'Next Episode →';
+    nextBtn.classList.add('btn-primary', 'icon-btn');
+    nextBtn.innerHTML = '→';
+    nextBtn.title = 'Next Episode';
     nextBtn.id = 'nextEpisodeBtn';
     nextBtn.style.display = 'none';
     nextBtn.addEventListener('click', () => {
       const nextEpisode = season.episodes[currentIndex + 1];
       navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
     });
+    // Append at the very end
     statusActions.appendChild(nextBtn);
   }
 }
@@ -784,10 +911,13 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
     function updateResumeButtonState() {
       if (currentProgress > 0) {
         resumeBtn.disabled = false;
-        resumeBtn.textContent = 'Resume from last position';
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'Resume from last position';
       } else {
         resumeBtn.disabled = true;
-        resumeBtn.textContent = 'No saved position';
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'No saved position';
+        resumeBtn.style.opacity = '0.5';
       }
     }
 
