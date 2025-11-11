@@ -339,11 +339,13 @@
         .then(response => response.json())
         .then(data => {
           if (data.userData) {
+            const isAdminUser = data.userData.isAdmin === true;
+
             localStorage.setItem("isLoggedIn", "true");
             localStorage.setItem("userEmail", emailValue);
             localStorage.setItem("userId", data.userData.id);
             localStorage.setItem("userName", data.userData.name);
-            localStorage.setItem("isAdmin", data.userData.isAdmin ? "true" : "false");
+            localStorage.setItem("isAdmin", isAdminUser ? "true" : "false");
             if (data.userData.profiles) {
               localStorage.setItem("userProfiles", JSON.stringify(data.userData.profiles.map((p, idx) => ({
                 id: idx + 1,
@@ -352,7 +354,7 @@
               }))));
             }
             
-            window.location.href = "profiles.html";
+            window.location.href = isAdminUser ? "admin-dashboard.html" : "profiles.html";
           } else {
             loginPasswordError.textContent = data.message || "שגיאה בהתחברות";
           }
