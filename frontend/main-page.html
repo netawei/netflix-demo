@@ -83,37 +83,49 @@
     }
     .content {
       padding: 40px;
-      text-align: center;
-    }
-    .greeting {
-      margin-bottom: 20px;
-      font-size: 24px;
-      font-weight: bold;
-    }
-    .search-box {
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: none;
-      width: 250px;
-      margin-bottom: 20px;
       text-align: right;
     }
-    .sort-btn {
-      cursor: pointer;
-      padding: 10px 20px;
-      background: linear-gradient(135deg, #e50914, #b00610);
-      border: none;
-      color: #fff;
-      font-weight: bold;
-      border-radius: 6px;
-      margin-bottom: 20px;
-      transition: transform 0.2s, background 0.3s;
-    }
-    .sort-btn:hover {
-      background: linear-gradient(135deg, #f6121d, #c50e15);
-      transform: scale(1.05);
-    }
+    
+    
+    .greeting {
+  margin-bottom: 10px;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: right;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: flex-start; /* ✅ changed from flex-end to flex-start */
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  width: 100%;
+  direction: rtl;
+}
+
+/* Search box */
+.search-box {
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+  width: 250px;
+  direction: rtl; /* optional if Hebrew text */
+}
+
+/* Dropdowns */
+.dropdown {
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  direction: rtl; /* for Hebrew alignment */
+}
+
+
     .catalog {
       display: flex;
       flex-wrap: wrap;
@@ -354,14 +366,35 @@
 
   <main class="content">
     <div class="greeting" id="greeting"></div>
-    <input type="text" id="searchInput" class="search-box" placeholder="חפש סרט או סדרה...">
-    <br>
-    <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
+  
+    <div class="top-bar">
+      <input
+        type="text"
+        id="searchInput"
+        class="search-box"
+        placeholder="חפש סרט או סדרה..."
+      />
+  
+      <select id="filterSelect" class="dropdown">
+        <option value="">סינון</option>
+        <option value="watched">נצפה</option>
+        <option value="notYet">לא נצפה</option>
+      </select>
+  
+      <select id="sortSelect" class="dropdown">
+        <option value="">מיין לפי</option>
+        <option value="rating">דירוג</option>
+        <option value="popularity">פופולריות</option>
+      </select>
+    </div>
+  
+    <br />
     <div class="catalog" id="favoritesCatalog"></div>
     <div id="genreFilter" class="genre-filter"></div>
     <div class="catalog" id="newestCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
+  
 
 
 
@@ -402,7 +435,6 @@
     const newestDiv = document.getElementById("newestCatalog");
     const favoritesDiv = document.getElementById("favoritesCatalog");
     const searchInput = document.getElementById("searchInput");
-    const sortBtn = document.getElementById("sortBtn");
   
     let catalog = [];
     let genres = [];
@@ -447,6 +479,8 @@
 
     async function initCatalog() {
       try {
+
+
         const [contentResponse, historyMap] = await Promise.all([
           fetch(BACKEND_URL+ "/api/content").then(res => res.json()),
           loadWatchHistory()
@@ -476,6 +510,13 @@
           );
         }
 
+        const popularityResponse = await fetch(WATCH_HISTORY_BASE + "/popularity");
+        const popularityData = await popularityResponse.json();
+        const popularityMap = {};
+        popularityData.forEach(p => {
+          popularityMap[String(p.content)] = p.popularity;
+        });
+
         catalog = contentResponse.map(content => {
           const timeMs = new Date(content.createdAt).getTime();
           const contentId = String(content._id);
@@ -500,7 +541,9 @@
               }
             }
           }
-
+          const popularity = popularityMap[contentId] || 0;
+          if(popularity > 0 )
+            console.log(content.title + " Pop : " + popularity)
           return {
             id: contentId,
             name: content.title,
@@ -516,6 +559,7 @@
             progress: progress,
             currentEpisode: currentEpisodeInfo,
             lastWatchedAt: history.lastWatchedAt || null,
+            popularity: popularity,
             createdAt: isNaN(timeMs) ? 0 : timeMs
           };
         });
@@ -1165,6 +1209,17 @@ function applyFilters() {
     );
   }
 
+  // Apply watched / not watched filter
+  const watchedFilter = document.getElementById("filterSelect").value;
+
+  if (watchedFilter === "watched") {
+    filtered = filtered.filter(item => watchHistoryMap[item.id]);
+  }
+
+  if (watchedFilter === "notYet") {
+    filtered = filtered.filter(item => !watchHistoryMap[item.id]);
+  }
+
   // Apply search filter (if search not empty)
   if (query) {
     filtered = filtered.filter(item =>
@@ -1776,23 +1831,30 @@ function renderNextBatch(itemsPerPage = 50) {
     }
 
 
-
-    sortBtn.addEventListener("click", () => {
-      if (!isSorted) {
-        catalog.sort((a, b) => a.name.localeCompare(b.name));
-        isSorted = true;
-        sortBtn.textContent = "החזר לסדר המקורי";
-      } else {
-        catalog.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        isSorted = false;
-        sortBtn.textContent = "מיין אלפביתי לפי שם";
-      }
-      groupByGenre();
-      renderGroupedCatalog();
-    });
-  
+    
     // Search filter
     searchInput.addEventListener("input", applyFilters);
+    document.getElementById("filterSelect").addEventListener("change", applyFilters);
+    document.getElementById("sortSelect").addEventListener("change", (e) => {
+      const value = e.target.value;
+
+      if (value === "popularity") {
+        // sort by popularity DESC
+        const sorted = [...catalog].sort((a, b) => b.popularity - a.popularity);
+        renderFlatCatalog(sorted);
+      }
+
+      if (value === "rating") {
+        const sorted = [...catalog].sort((a, b) =>
+          (b.rating || 0) - (a.rating || 0)
+        );
+        renderFlatCatalog(sorted);
+      }
+
+      if (value === "") {
+        renderCatalog(catalog);
+      }
+    });
 
   </script>  
 </body>
