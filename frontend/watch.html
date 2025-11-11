@@ -144,9 +144,15 @@
       border: 1px solid rgba(255, 255, 255, 0.4);
       color: var(--text);
     }
-    .status-actions button:hover {
-      transform: translateY(-1px);
-      opacity: 0.92;
+    .play-pause-btn {
+      width: 54px !important;
+      height: 54px !important;
+      font-size: 24px !important;
+      background: linear-gradient(135deg, #e50914, #b00610) !important;
+    }
+
+    .play-pause-btn:hover {
+      background: linear-gradient(135deg, #f6121d, #c50e15) !important;
     }
     .error-banner {
       background: rgba(229, 9, 20, 0.15);
@@ -298,14 +304,14 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 12px;
-      margin-top: 8px;
+      margin-top: 4px;
       max-height: 400px;
       overflow-y: auto;
       backdrop-filter: blur(10px);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
       position: absolute;
-      right: 28px;
-      top: 60px;
+      left: 0;
+      top: 100%;
       width: 300px;
       z-index: 1000;
     }
@@ -373,22 +379,28 @@
       font-size: 10px;
       font-weight: bold;
     }
-    /* Forward and Rewind button number positioning */
+    /* Forward and Rewind button styling */
     #rewind10Btn, #forward10Btn {
-      font-size: 24px;
+      font-size: 22px;
       position: relative;
+      font-weight: normal;
+    }
+
+    #rewind10Btn .icon-wrapper,
+    #forward10Btn .icon-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     #rewind10Btn .icon-number,
     #forward10Btn .icon-number {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 12px;
-      font-weight: bold;
+      font-size: 10px;
+      font-weight: 600;
       color: white;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     }
 
     
@@ -415,9 +427,11 @@
       <div class="content-header">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
           <h1 id="contentTitle">...</h1>
-          <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
-            Episodes ▼
-          </button>
+          <div style="position: relative;">
+            <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
+              Episodes ▼
+            </button>
+          </div>
         </div>
         <div class="metadata" id="contentMeta"></div>
       </div>
@@ -441,14 +455,14 @@
           <strong>Status:</strong> <span id="statusText">Preparing video...</span>
         </div>
         <div class="status-actions">
-          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
-            ↺<span class="icon-number">10</span>
-          </button>
-          <button class="btn-secondary icon-btn" id="forward10Btn" title="Forward 10s">
-            ↻<span class="icon-number">10</span>
-          </button>
           <button class="btn-secondary icon-btn" id="restartBtn" title="Restart">⟲</button>
-          <button class="btn-primary icon-btn" id="resumeBtn" title="Resume">▶</button>
+          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
+            <span class="icon-wrapper">⟲<span class="icon-number">10</span></span>
+          </button>
+          <button class="btn-primary icon-btn play-pause-btn" id="resumeBtn" title="Play">▶</button>
+          <button class="btn-secondary icon-btn" id="forward10Btn" title="Forward 10s">
+            <span class="icon-wrapper">⟳<span class="icon-number">10</span></span>
+          </button>
         </div>
       </div>
     </section>
@@ -514,13 +528,10 @@
     });
 
     resumeBtn.addEventListener('click', () => {
-      if (currentProgress > 0 && currentProgress < videoPlayer.duration) {
-        showLoadingOverlay('Resuming...');
-        videoPlayer.currentTime = currentProgress;
-        statusText.textContent = 'Resumed from last position';
+      if (videoPlayer.paused) {
         videoPlayer.play();
-        // Hide loading when video starts
-        setTimeout(() => hideLoadingOverlay(), 500);
+      } else {
+        videoPlayer.pause();
       }
     });
 
@@ -607,25 +618,26 @@
     }
   });
   
-  // Previous episode button (arrow left) - always add first
+  // Previous episode button (arrow left) - insert before restart button
   if (hasPrevious) {
     const prevBtn = document.createElement('button');
     prevBtn.classList.add('btn-secondary', 'icon-btn');
-    prevBtn.innerHTML = '←';
+    prevBtn.innerHTML = '⏮';
     prevBtn.title = 'Previous Episode';
     prevBtn.addEventListener('click', () => {
       const prevEpisode = season.episodes[currentIndex - 1];
       navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
     });
-    // Insert at the very beginning
-    statusActions.insertBefore(prevBtn, statusActions.firstChild);
+    // Insert at the very beginning (before restart button)
+    const restartBtn = document.getElementById('restartBtn');
+    statusActions.insertBefore(prevBtn, restartBtn);
   }
 
-  // Next episode button (arrow right) - always add last
+  // Next episode button - always add last
   if (hasNext) {
     const nextBtn = document.createElement('button');
     nextBtn.classList.add('btn-primary', 'icon-btn');
-    nextBtn.innerHTML = '→';
+    nextBtn.innerHTML = '⏭';
     nextBtn.title = 'Next Episode';
     nextBtn.id = 'nextEpisodeBtn';
     nextBtn.style.display = 'none';
@@ -777,12 +789,16 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       videoPlayer.addEventListener('play', () => {
         statusText.textContent = 'Playing';
         startProgressInterval();
+        resumeBtn.innerHTML = '❚❚';
+        resumeBtn.title = 'Pause';
       });
 
       videoPlayer.addEventListener('pause', () => {
         statusText.textContent = 'Paused';
         sendProgressUpdate();
         clearProgressInterval();
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'Play';
       });
 
       videoPlayer.addEventListener('ended', () => {
@@ -909,15 +925,14 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
     }
 
     function updateResumeButtonState() {
-      if (currentProgress > 0) {
-        resumeBtn.disabled = false;
+      resumeBtn.disabled = false;
+      resumeBtn.style.opacity = '1';
+      if (videoPlayer.paused) {
         resumeBtn.innerHTML = '▶';
-        resumeBtn.title = 'Resume from last position';
+        resumeBtn.title = 'Play';
       } else {
-        resumeBtn.disabled = true;
-        resumeBtn.innerHTML = '▶';
-        resumeBtn.title = 'No saved position';
-        resumeBtn.style.opacity = '0.5';
+        resumeBtn.innerHTML = '❚❚';
+        resumeBtn.title = 'Pause';
       }
     }
 
