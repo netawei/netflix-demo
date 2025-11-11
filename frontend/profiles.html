@@ -186,6 +186,31 @@
       margin-top: -10px;
       margin-bottom: 10px;
     }
+    .profile-name-input {
+      border: none;
+      border-bottom: 1px solid #fff;
+      background: transparent;
+      color: #fff;
+      font-weight: bold;
+      font-size: 17px;
+      text-align: center;
+      outline: none;
+      padding: 2px;
+      margin-top: 10px;
+      width: 150px;
+      display: none;
+    }
+    .profile-name-input.error {
+      border-bottom-color: #ff6b6b;
+    }
+    .profile-name-error {
+      color: #ff6b6b;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+      text-align: center;
+      width: 150px;
+    }
     .avatar-selector {
       display: flex;
       flex-wrap: wrap;
@@ -207,6 +232,31 @@
     }
     .avatar-option.selected {
       border-color: #e50914;
+    }
+    .delete-profile-btn {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #e50914;
+      border: 2px solid #000;
+      color: white;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .delete-profile-btn:hover {
+      transform: scale(1.1);
+      background: #ff0a16;
+    }
+    .avatar.manage-mode .delete-profile-btn {
+      display: flex;
     }
     .modal-content.delete-confirm {
       text-align: center;
@@ -235,63 +285,10 @@
       background: linear-gradient(135deg, #f6121d, #c50e15);
       transform: scale(1.05);
     }
-    .profile-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .profile-actions .action-btn {
-      padding: 8px;
-      border-radius: 8px;
-      font-size: 13px;
-      border: 1px solid rgba(255,255,255,0.25);
-      background: rgba(0,0,0,0.45);
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.2s ease, transform 0.2s ease;
-    }
-    .profile-actions .action-btn:hover {
-      background: rgba(229,9,20,0.25);
-      transform: translateY(-1px);
-    }
-    .profile-actions .action-delete {
-      border-color: rgba(229,9,20,0.45);
-      color: #ff6b6b;
-    }
     .buttons-container {
       display: flex;
       gap: 10px;
       justify-content: center;
-    }
-    .stats-fab {
-      position: fixed;
-      bottom: 30px;
-      left: 30px;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #e51e1e, #c01515);
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(236, 38, 38, 0.4);
-      transition: transform 0.3s, box-shadow 0.3s;
-      z-index: 999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-    }
-
-    .stats-fab:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(229, 30, 30, 0.6);
-    }
-
-    .stats-fab svg {
-      width: 28px;
-      height: 28px;
-      fill: rgb(3, 3, 3);
     }
     
   </style>
@@ -332,23 +329,6 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="renameProfileModal">
-    <div class="modal-content">
-      <h2>שינוי שם פרופיל</h2>
-      <form onsubmit="event.preventDefault(); confirmRename();">
-        <div class="modal-field">
-          <label class="modal-label">שם חדש</label>
-          <input type="text" class="modal-input" id="renameProfileInput" placeholder="שם פרופיל חדש" required>
-          <div class="modal-error" id="renameProfileError"></div>
-        </div>
-        <div class="modal-buttons">
-          <button type="button" class="modal-btn modal-btn-secondary" onclick="closeRenameModal()">ביטול</button>
-          <button type="submit" class="modal-btn modal-btn-primary">שמור</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <div class="modal-overlay" id="deleteConfirmModal">
     <div class="modal-content delete-confirm">
       <h2>מחיקת פרופיל</h2>
@@ -369,7 +349,6 @@
   </main>
 
   <script>
-(function () {
     const BACKEND_URL = localStorage.getItem("BackendURL");
     const profilesContainer = document.getElementById("profiles");
     const API_BASE_URL = BACKEND_URL+ '/api/users';
@@ -381,20 +360,11 @@
     let editingProfile = null;
     let availableAvatars = [];
     let profileToDelete = null;
-    let renameProfile = null;
 
     const userId = localStorage.getItem("userId");
-    const isAdmin = localStorage.getItem("isAdmin") === "true";
-
     if (!userId) {
       alert("אנא התחבר תחילה");
       window.location.href = "index.html";
-    }
-
-    if (isAdmin) {
-      localStorage.removeItem("activeProfile");
-      window.location.href = "admin-dashboard.html";
-      return;
     }
 
     function isAvatarUrl(avatar) {
@@ -420,14 +390,11 @@
       return availableAvatars;
     }
 
-    const manageButton = document.getElementById('manageButton');
-    if (manageButton) {
-      manageButton.addEventListener('click', function() {
-        isManageMode = !isManageMode;
-        this.textContent = isManageMode ? 'סיום ניהול' : 'נהל פרופילים';
-        renderProfiles();
-      });
-    }
+    document.getElementById('manageButton').addEventListener('click', function() {
+      isManageMode = !isManageMode;
+      this.textContent = isManageMode ? 'סיום ניהול' : 'נהל פרופילים';
+      renderProfiles();
+    });
     
     async function loadProfiles() {
       try {
@@ -445,7 +412,7 @@
         canAddProfile = data.canAddProfile !== false;
         
         const profilesForLocalStorage = currentProfiles.map((p, idx) => ({
-          id: p._id || idx + 1,
+          id: idx + 1,
           name: p.name,
           img: p.avatar || "https://picsum.photos/seed/" + (idx + 1) + "/200"
         }));
@@ -501,7 +468,6 @@
     function closeProfileModal() {
       const modal = document.getElementById("profileModal");
       modal.classList.remove("show");
-      selectedAvatar = null;
     }
 
     async function openEditAvatarModal(profileIndex) {
@@ -512,15 +478,12 @@
       await loadAvailableAvatars();
       const selector = document.getElementById('editAvatarSelector');
       selector.innerHTML = '';
-      selectedAvatar = editingProfile.avatar || null;
+      selectedAvatar = null;
       
       availableAvatars.forEach(avatar => {
         const img = document.createElement('img');
         img.src = avatar;
         img.className = 'avatar-option';
-        if (avatar === editingProfile.avatar) {
-          img.classList.add('selected');
-        }
         img.onclick = function() {
           document.querySelectorAll('#editAvatarSelector .avatar-option').forEach(el => el.classList.remove('selected'));
           img.classList.add('selected');
@@ -534,107 +497,6 @@
       const modal = document.getElementById("editAvatarModal");
       modal.classList.remove("show");
       editingProfile = null;
-      selectedAvatar = null;
-    }
-
-    async function saveAvatar() {
-      if (!editingProfile) return;
-      const profileId = editingProfile._id || editingProfile.id;
-      const newAvatar = selectedAvatar || editingProfile.avatar;
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ avatar: newAvatar })
-        });
-
-        if (response.ok) {
-          if (localStorage.getItem("activeProfile")) {
-            const active = JSON.parse(localStorage.getItem("activeProfile"));
-            const activeId = active.profileId || active._id || active.id;
-            if (String(activeId) === String(profileId)) {
-              active.img = newAvatar;
-              active.profileId = profileId;
-              localStorage.setItem("activeProfile", JSON.stringify(active));
-            }
-          }
-          closeEditAvatarModal();
-          await renderProfiles();
-        }
-      } catch (error) {
-        console.error('Error updating avatar:', error);
-        alert("שגיאה בשמירת התמונה. נסה שוב.");
-      }
-    }
-
-    function openRenameModal(profileIndex) {
-      renameProfile = currentProfiles[profileIndex];
-      const input = document.getElementById("renameProfileInput");
-      const error = document.getElementById("renameProfileError");
-      input.value = renameProfile.name || '';
-      error.textContent = '';
-      document.getElementById("renameProfileModal").classList.add("show");
-      input.focus();
-    }
-
-    function closeRenameModal() {
-      document.getElementById("renameProfileModal").classList.remove("show");
-      renameProfile = null;
-    }
-
-    async function confirmRename() {
-      const input = document.getElementById("renameProfileInput");
-      const error = document.getElementById("renameProfileError");
-      const newName = input.value.trim();
-
-      if (!renameProfile) return;
-      if (!newName) {
-        error.textContent = "אנא הזן שם תקין";
-        return;
-      }
-      if (currentProfiles.some(p => p._id !== renameProfile._id && p.name && p.name.toLowerCase() === newName.toLowerCase())) {
-        error.textContent = "שם זה כבר קיים";
-        return;
-      }
-
-      const profileId = renameProfile._id || renameProfile.id;
-      const oldName = renameProfile.name;
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ name: newName })
-        });
-
-        if (response.ok) {
-          migrateProfileLocalStorageKeys(oldName, newName);
-          if (localStorage.getItem("activeProfile")) {
-            const active = JSON.parse(localStorage.getItem("activeProfile"));
-            const activeId = active.profileId || active._id || active.id;
-            if (String(activeId) === String(profileId) || active.name === oldName) {
-              active.name = newName;
-              active.profileId = profileId;
-              localStorage.setItem("activeProfile", JSON.stringify(active));
-            }
-          }
-          closeRenameModal();
-          await renderProfiles();
-        } else {
-          const respError = await response.json();
-          error.textContent = respError.message || "שגיאה בעדכון";
-        }
-      } catch (err) {
-        console.error('Error updating profile name:', err);
-        error.textContent = "שגיאה בעדכון. נסה שוב.";
-      }
     }
 
     function openDeleteConfirmModal(profileIndex) {
@@ -655,8 +517,10 @@
       if (!profileToDelete) return;
       
       const profileId = profileToDelete._id || profileToDelete.id;
-      const profileName = profileToDelete.name;
-
+      console.log('Profile to delete:', profileToDelete);
+      console.log('Profile ID being sent:', profileId);
+      console.log('Full URL:', `${API_BASE_URL}/${userId}/profiles/${profileId}`);
+      
       try {
         const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
           method: 'DELETE',
@@ -664,14 +528,6 @@
         });
 
         if (response.ok) {
-          removeProfileLocalStorageKeys(profileName);
-          if (localStorage.getItem("activeProfile")) {
-            const active = JSON.parse(localStorage.getItem("activeProfile"));
-            const activeId = active.profileId || active._id || active.id;
-            if (String(activeId) === String(profileId) || active.name === profileName) {
-              localStorage.removeItem("activeProfile");
-            }
-          }
           closeDeleteConfirmModal();
           profileToDelete = null;
           await renderProfiles();
@@ -685,28 +541,72 @@
       }
     }
 
-    function migrateProfileLocalStorageKeys(oldName, newName) {
-      const keys = [
-        `likes_${userId}_${oldName}`,
-        `favorites_${userId}_${oldName}`,
-        `watchHistory_${userId}_${oldName}`
-      ];
-      keys.forEach(oldKey => {
-        const data = localStorage.getItem(oldKey);
-        if (data !== null) {
-          const newKey = oldKey.replace(oldName, newName);
-          localStorage.setItem(newKey, data);
-          localStorage.removeItem(oldKey);
+    async function saveAvatar() {
+      if (!selectedAvatar || !editingProfile) return;
+      
+      const profileId = editingProfile._id || editingProfile.id;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ avatar: selectedAvatar })
+        });
+
+        if (response.ok) {
+          closeEditAvatarModal();
+          await renderProfiles();
         }
-      });
+      } catch (error) {
+        console.error('Error updating avatar:', error);
+      }
     }
 
-    function removeProfileLocalStorageKeys(profileName) {
-      [
-        `likes_${userId}_${profileName}`,
-        `favorites_${userId}_${profileName}`,
-        `watchHistory_${userId}_${profileName}`
-      ].forEach(key => localStorage.removeItem(key));
+    async function saveProfileName(profileIndex, newName, inputElement, errorElement, nameP) {
+      const profile = currentProfiles[profileIndex];
+      const existingProfile = currentProfiles.find(
+        (p, idx) => idx !== profileIndex && p.name && p.name.toLowerCase() === newName.toLowerCase()
+      );
+      
+      if (existingProfile) {
+        inputElement.classList.add('error');
+        errorElement.textContent = "שם זה כבר קיים";
+        errorElement.style.display = 'block';
+        return;
+      }
+      
+      inputElement.classList.remove('error');
+      errorElement.style.display = 'none';
+      
+      const profileId = profile._id || profile.id;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/${userId}/profiles/${profileId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ name: newName })
+        });
+
+        if (response.ok) {
+          inputElement.style.display = 'none';
+          nameP.style.display = 'block';
+          await renderProfiles();
+        } else {
+          const error = await response.json();
+          errorElement.textContent = error.message || "שגיאה בעדכון";
+          errorElement.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error updating profile name:', error);
+        errorElement.textContent = "שגיאה בעדכון. נסה שוב.";
+        errorElement.style.display = 'block';
+      }
     }
 
     document.getElementById("profileModal").addEventListener("click", function(e) {
@@ -718,12 +618,6 @@
     document.getElementById("editAvatarModal").addEventListener("click", function(e) {
       if (e.target === this) {
         closeEditAvatarModal();
-      }
-    });
-
-    document.getElementById("renameProfileModal").addEventListener("click", function(e) {
-      if (e.target === this) {
-        closeRenameModal();
       }
     });
 
@@ -742,10 +636,6 @@
         const editModal = document.getElementById("editAvatarModal");
         if (editModal.classList.contains("show")) {
           closeEditAvatarModal();
-        }
-        const renameModal = document.getElementById("renameProfileModal");
-        if (renameModal.classList.contains("show")) {
-          closeRenameModal();
         }
         const deleteModal = document.getElementById("deleteConfirmModal");
         if (deleteModal.classList.contains("show")) {
@@ -830,57 +720,80 @@
         
         const avatarSrc = profile.avatar || "https://picsum.photos/seed/" + (index + 1) + "/200";
         
-        const actionsMarkup = isManageMode ? `
-          <div class="profile-actions">
-            <button class="action-btn action-edit-name" data-index="${index}">עריכת שם</button>
-            <button class="action-btn action-edit-avatar" data-index="${index}">שינוי תמונה</button>
-            <button class="action-btn action-delete" data-index="${index}">מחיקה</button>
-          </div>
-        ` : '';
-
         li.innerHTML = `
           <img src="${avatarSrc}" alt="${profile.name}" data-index="${index}">
           <p data-index="${index}">${profile.name}</p>
-          ${actionsMarkup}
+          <input type="text" class="profile-name-input" value="${profile.name}" data-index="${index}">
+          <div class="profile-name-error"></div>
+          <button class="delete-profile-btn" data-index="${index}" title="מחק פרופיל">×</button>
         `;
         
         const img = li.querySelector('img');
         const nameP = li.querySelector('p');
+        const nameInput = li.querySelector('.profile-name-input');
+        const errorDiv = li.querySelector('.profile-name-error');
+        const deleteBtn = li.querySelector('.delete-profile-btn');
         
         if (isManageMode) {
-          const editNameBtn = li.querySelector('.action-edit-name');
-          const editAvatarBtn = li.querySelector('.action-edit-avatar');
-          const deleteBtn = li.querySelector('.action-delete');
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(e.target.dataset.index);
+            openEditAvatarModal(idx);
+          });
+          
+          nameP.addEventListener('click', (e) => {
+            e.stopPropagation();
+            nameP.style.display = 'none';
+            nameInput.style.display = 'block';
+            errorDiv.style.display = 'none';
+            nameInput.focus();
+            nameInput.select();
+          });
+          
+          nameInput.addEventListener('blur', function(e) {
+            const idx = parseInt(e.target.dataset.index);
+            const newName = this.value.trim();
+            if (!newName) {
+              this.value = currentProfiles[idx].name;
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+            } else if (newName !== currentProfiles[idx].name) {
+              saveProfileName(idx, newName, this, errorDiv, nameP);
+            } else {
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+            }
+          });
+          
+          nameInput.addEventListener('keydown', function(e) {
+            const idx = parseInt(this.dataset.index);
+            if (e.key === 'Enter') {
+              this.blur();
+            } else if (e.key === 'Escape') {
+              this.value = currentProfiles[idx].name;
+              this.style.display = 'none';
+              nameP.style.display = 'block';
+              errorDiv.style.display = 'none';
+              this.classList.remove('error');
+            }
+          });
 
-          if (img) {
-            img.style.cursor = 'pointer';
-          }
+          nameInput.addEventListener('input', function() {
+            this.classList.remove('error');
+            errorDiv.style.display = 'none';
+          });
 
-          if (editNameBtn) {
-            editNameBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              openRenameModal(parseInt(editNameBtn.dataset.index));
-            });
-          }
-
-          if (editAvatarBtn) {
-            editAvatarBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              openEditAvatarModal(parseInt(editAvatarBtn.dataset.index));
-            });
-          }
-
-          if (deleteBtn) {
-            deleteBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              openDeleteConfirmModal(parseInt(deleteBtn.dataset.index));
-            });
-          }
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(deleteBtn.dataset.index);
+            openDeleteConfirmModal(idx);
+          });
         } else {
           li.addEventListener("click", () => {
             localStorage.setItem("activeProfile", JSON.stringify({
-              id: profile._id || profile.id || index + 1,
-              profileId: profile._id || profile.id || index + 1,
+              id: index + 1,
               name: profile.name,
               img: avatarSrc,
               userId: userId,
@@ -907,45 +820,32 @@
       }
     }
     
-    if (localStorage.getItem("isAdmin") === "true") {
-      return;
-    }
     renderProfiles();
     
-    setTimeout(() => {
-      renderProfiles();
-    }, 100);
-
-    window.openProfileModal = openProfileModal;
-    window.closeProfileModal = closeProfileModal;
-    window.closeEditAvatarModal = closeEditAvatarModal;
-    window.saveAvatar = saveAvatar;
-    window.closeRenameModal = closeRenameModal;
-    window.confirmRename = confirmRename;
-    window.closeDeleteConfirmModal = closeDeleteConfirmModal;
-    window.confirmDelete = confirmDelete;
-})();
-
-  function addStatisticsButton() {
-    const statsFab = document.createElement('button');
-    statsFab.className = 'stats-fab';
-    statsFab.title = 'סטטיסטיקות';
-
-    statsFab.innerHTML = `
-      <svg viewBox="0 0 24 24">
-        <path d="M3 13h2v8H3zm4-8h2v16H7zm4 4h2v12h-2zm4-2h2v14h-2zm4-2h2v16h-2z"/>
-      </svg>
-      `;
-    statsFab.onclick = () => {
-      window.location.href = 'statistics.html';
+    const checkAdminStatus = () => {
+      const isAdmin = localStorage.getItem("isAdmin") === "true";
+      console.log('isAdmin from localStorage:', isAdmin);
+      
+      if (isAdmin) {
+        const buttonsContainer = document.querySelector('.buttons-container');
+        
+        if (buttonsContainer) {
+          const adminBtn = document.createElement('button');
+          adminBtn.className = 'btn-admin';
+          adminBtn.textContent = 'הוספת תוכן';
+          adminBtn.onclick = () => {
+            window.location.href = 'add-content.html';
+          };
+          
+          buttonsContainer.appendChild(adminBtn);
+          console.log('Admin button added');
+        }
+      }
     };
-    
-    document.body.appendChild(statsFab);
-  }
-  document.addEventListener('DOMContentLoaded', () => {
-    addStatisticsButton();
-  });
 
+    setTimeout(() => {
+      checkAdminStatus();
+    }, 100);
   </script>
 </body>
 </html>

@@ -5,6 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>דף ראשי עם לייקים, מיון וחיפוש</title>
   <style>
+    .genre-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.genre-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: #333;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.genre-btn:hover {
+  background: #444;
+  transform: scale(1.05);
+}
+
+.genre-btn.active {
+  background: #e50914;
+}
+
+
     body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -329,6 +358,7 @@
     <br>
     <button class="sort-btn" id="sortBtn">מיין אלפביתי לפי שם</button>
     <div class="catalog" id="favoritesCatalog"></div>
+    <div id="genreFilter" class="genre-filter"></div>
     <div class="catalog" id="newestCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
@@ -336,6 +366,7 @@
 
 
   <script>
+    const BACKEND_URL = localStorage.getItem("BackendURL");
     const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
     if (activeProfile) {
       document.getElementById("greeting").textContent = `שלום, ${activeProfile.name}`;
@@ -345,7 +376,7 @@
   
     document.getElementById("logoutBtn").addEventListener("click", () => {
       // Logout from backend
-      fetch('http://localhost:5001/api/users/logout', {
+      fetch(BACKEND_URL + '/api/users/logout', {
         method: 'GET',
         credentials: 'include'
       }).catch(err => console.error('Logout error:', err));
@@ -360,7 +391,7 @@
       window.location.href = "index.html";
     });
 
-    const API_BASE_URL = 'http://localhost:5001/api/users';
+    const API_BASE_URL = BACKEND_URL + '/api/users';
     const userId = activeProfile?.userId || localStorage.getItem("userId");
     const profileName = activeProfile?.name;
     let likedContentIds = []; // Array of content IDs that are liked by this profile
@@ -374,10 +405,11 @@
     const sortBtn = document.getElementById("sortBtn");
   
     let catalog = [];
+    let genres = [];
     let groupedCatalog = {};
     let isSorted = false;
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
-    const WATCH_HISTORY_BASE = 'http://localhost:5001/api/watchHistory';
+    const WATCH_HISTORY_BASE = BACKEND_URL+'/api/watchHistory';
     let watchHistoryMap = {};
 
     async function loadWatchHistory() {
@@ -416,17 +448,63 @@
     async function initCatalog() {
       try {
         const [contentResponse, historyMap] = await Promise.all([
-          fetch("http://localhost:5001/api/content").then(res => res.json()),
+          fetch(BACKEND_URL+ "/api/content").then(res => res.json()),
           loadWatchHistory()
         ]);
 
+
+        // Load episode progress for all series
+        const seriesIds = contentResponse.filter(c => c.type === 'series').map(c => c._id);
+        const episodeProgressData = {};
+        
+        if (userId) {
+          await Promise.all(
+            seriesIds.map(async (seriesId) => {
+              try {
+                const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesId}`, {
+                  method: 'GET',
+                  credentials: 'include'
+                });
+                if (response.ok) {
+                  const data = await response.json();
+                  episodeProgressData[seriesId] = data;
+                }
+              } catch (error) {
+                console.error(`Error loading progress for series ${seriesId}:`, error);
+              }
+            })
+          );
+        }
+
         catalog = contentResponse.map(content => {
-          const timeMs = new Date(content.updatedAt).getTime();
+          const timeMs = new Date(content.createdAt).getTime();
           const contentId = String(content._id);
           const history = historyMap[contentId] || {};
+
+                    
+          let progress = history.progress || 0;
+          let currentEpisodeInfo = null;
+          
+          // For series, check episode progress
+          if (content.type === 'series' && episodeProgressData[content._id]) {
+            const seriesProgress = episodeProgressData[content._id];
+            if (seriesProgress.currentEpisode) {
+              currentEpisodeInfo = seriesProgress.currentEpisode;
+              // Find the progress for current episode
+              const currentEpProgress = (seriesProgress.episodeProgress || []).find(
+                ep => ep.seasonNumber === currentEpisodeInfo.seasonNumber && 
+                      ep.episodeNumber === currentEpisodeInfo.episodeNumber
+              );
+              if (currentEpProgress) {
+                progress = currentEpProgress.progress;
+              }
+            }
+          }
+
           return {
             id: contentId,
             name: content.title,
+            type: content.type,
             year: content.releaseYear,
             likes: content.likes || 0,
             img: content.posterUrl,
@@ -435,11 +513,19 @@
             cast: content.cast || [],
             description: content.description || '',
             rating: content.rating || null,
-            progress: history.progress || 0,
+            progress: progress,
+            currentEpisode: currentEpisodeInfo,
             lastWatchedAt: history.lastWatchedAt || null,
-            updatedAt: isNaN(timeMs) ? 0 : timeMs
+            createdAt: isNaN(timeMs) ? 0 : timeMs
           };
         });
+      
+      genres =[...new Set(contentResponse.map(content => content.genre).flat())];
+      renderGenreButtons();
+
+      console.log(genres);
+
+
 
         try {
           await loadLikedContent();
@@ -549,6 +635,7 @@
     }
 
     function setupWatchButtons(container, item) {
+
       const seriesBtn = container.querySelector('.btn-watch-series');
       if (seriesBtn) {
         seriesBtn.addEventListener('click', (e) => {
@@ -556,7 +643,7 @@
           openEpisodesOverlay(item);
         });
       }
-      
+
       const startBtn = container.querySelector('.btn-start-watch');
       if (startBtn) {
         startBtn.addEventListener('click', (e) => {
@@ -564,7 +651,6 @@
           startWatch(item, true);
         });
       }
-      
       const continueBtn = container.querySelector('.btn-continue-watch');
       if (continueBtn) {
         continueBtn.addEventListener('click', (e) => {
@@ -572,14 +658,29 @@
           startWatch(item, false);
         });
       }
-    }
 
-    function openEpisodesOverlay(seriesItem) {
-      const params = new URLSearchParams({
-        contentId: seriesItem.id,
-        userId: userId
-      });
-      window.location.href = `episodes-overlay.html?${params.toString()}`;
+      const restartSeriesBtn = container.querySelector('.btn-restart-series');
+      if (restartSeriesBtn) {
+        restartSeriesBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Restart from episode 1 of season 1
+          const params = new URLSearchParams({
+            contentId: item.id,
+            seasonNumber: 1,
+            episodeNumber: 1,
+            restart: '1'
+          });
+          window.location.href = `watch.html?${params.toString()}`;
+        });
+      }
+      
+      const restartMovieBtn = container.querySelector('.btn-restart-movie');
+      if (restartMovieBtn) {
+        restartMovieBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startWatch(item, true);
+        });
+      }
     }
 
     function setupFavoriteButton(container, item) {
@@ -744,21 +845,31 @@
           ${item.favorited ? '★ במועדפים' : '☆ הוסף למועדפים'}
         </button>
       `;
+
    
       // Determine if this is a series
       const isSeries = item.type === 'series';
+
+      let progressText = '';
+      if (isSeries && item.currentEpisode && hasProgress) {
+        progressText = `<p class="item-progress-text">Season ${item.currentEpisode.seasonNumber} Episode ${item.currentEpisode.episodeNumber} - Saved at ${formatPlaybackTime(item.progress)}</p>`;
+      } else if (!isSeries && hasProgress) {
+        progressText = `<p class="item-progress-text">Saved at ${formatPlaybackTime(item.progress)}</p>`;
+      }
 
       const watchSection = `
         <div class="item-watch-block">
           <div class="item-actions">
             <button class="btn-watch ${isSeries ? 'btn-watch-series' : 'btn-start-watch'}" data-content="${item.id}" data-type="${item.type || 'movie'}">
-              ${isSeries ? 'התחל צפייה' : (hasProgress ? 'התחל מהתחלה' : 'התחל צפייה')}
+              ${hasProgress ? 'התחל מהתחלה' : 'התחל צפייה'}
             </button>
-            ${!isSeries && hasProgress ? `<button class="btn-watch-secondary btn-continue-watch" data-content="${item.id}">המשך צפייה</button>` : ''}
+            ${hasProgress ? `<button class="btn-watch-secondary ${isSeries ? 'btn-restart-series' : 'btn-continue-watch'}" data-content="${item.id}">המשך צפיה</button>` : ''}
           </div>
-          ${!isSeries && progressDisplay}
+          ${progressDisplay}
+          ${progressText}
           ${favoriteButton}
           <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+          <p><strong>Likes:</strong> <span class="like-count">${item.likes}</span></p>
           <button class="like-btn ${item.liked ? 'liked' : ''}">
             <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
           </button>
@@ -789,9 +900,8 @@
       // Get the 10 newest items
       const newest = [...items]
         .sort((a, b) => {
-          const dateA = new Date(a.updatedAt);
-          const dateB = new Date(b.updatedAt);
-          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
           return dateB - dateA;
         })
         .slice(0, 10);
@@ -947,6 +1057,185 @@
       favoritesDiv.appendChild(grid);
     }
   
+      let selectedGenres = new Set();
+
+function renderGenreButtons() {
+  const filterDiv = document.getElementById("genreFilter");
+  filterDiv.innerHTML = "";
+
+  genres.forEach(genre => {
+    const btn = document.createElement("button");
+    btn.classList.add("genre-btn");
+    btn.textContent = genre;
+    btn.addEventListener("click", () => {
+  if (selectedGenres.has(genre)) {
+    selectedGenres.delete(genre);
+    btn.classList.remove("active");
+  } else {
+    selectedGenres.add(genre);
+    btn.classList.add("active");
+  }
+  applyFilters(); // unified filtering
+});
+    filterDiv.appendChild(btn);
+  });
+}
+
+let filteredResults = [];
+let itemsPerPage = 50;
+let renderedCount = 0;
+let isLoadingMore = false;
+
+
+function applyFilters() {
+  const query = searchInput.value.toLowerCase().trim();
+
+  // Start from the full catalog
+  let filtered = [...catalog];
+
+  // Apply genre filter (if any selected)
+  if (selectedGenres.size > 0) {
+    filtered = filtered.filter(item =>
+      item.genre.some(g => selectedGenres.has(g))
+    );
+  }
+
+  // Apply search filter (if search not empty)
+  if (query) {
+    filtered = filtered.filter(item =>
+      item.name.toLowerCase().includes(query) ||
+      item.genre.some(g => g.toLowerCase().includes(query))
+    );
+  }
+
+  // Save and render the result
+  filteredResults = filtered;
+  renderedCount = 0;
+  catalogDiv.innerHTML = "";
+  newestDiv.innerHTML = "";
+  window.removeEventListener("scroll", handleScroll);
+
+  const newest = [...filteredResults]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10);
+    renderNewest(newest);
+  if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0) {
+    // Default full view (no filters)
+    groupByGenre();
+    renderGroupedCatalog();
+    filteredResults = [];
+    renderedCount = 0;
+    return;
+  }
+
+  // If results fit in one page — render them all and don't attach scroll
+  if (filteredResults.length <= itemsPerPage) {
+    renderFlatCatalog(filteredResults);
+    // ensure there's no scroll listener
+    return;
+  }
+
+  // Otherwise render first batch and attach scroll listener
+  renderNextBatch();
+  window.addEventListener("scroll", handleScroll);
+}
+
+
+let scrollTimeout = null;
+
+function handleScroll() {
+  if (isLoadingMore) return;
+
+  const scrollPosition = window.innerHeight + window.scrollY;
+  const threshold = document.body.offsetHeight - 300;
+
+  if (scrollPosition >= threshold) {
+    isLoadingMore = true;
+    window.removeEventListener("scroll", handleScroll);
+    renderNextBatch(itemsPerPage);
+  }
+}
+
+
+function renderNextBatch(itemsPerPage = 50) {
+  if (filteredResults.length === 0) return;
+
+  const total = filteredResults.length;
+  let nextBatch = [];
+
+  for (let i = 0; i < itemsPerPage; i++) {
+    const index = (renderedCount + i) % total; // wrap around
+    nextBatch.push(filteredResults[index]);
+  }
+
+  renderedCount = (renderedCount + itemsPerPage) % total;
+
+  // create grid if needed
+  let grid = catalogDiv.querySelector(".catalog-grid");
+  if (!grid) {
+    const title = document.createElement("h2");
+    title.textContent = `תוצאות (${filteredResults.length})`;
+    title.style.textAlign = "center";
+    title.style.marginTop = "40px";
+    title.style.color = "#e50914";
+    title.style.fontSize = "28px";
+    title.style.fontWeight = "bold";
+    catalogDiv.appendChild(title);
+
+    grid = document.createElement("div");
+    grid.classList.add("catalog-grid");
+    grid.style.display = "flex";
+    grid.style.flexWrap = "wrap";
+    grid.style.gap = "20px";
+    grid.style.justifyContent = "flex-start";
+    catalogDiv.appendChild(grid);
+  }
+
+  // append items
+  nextBatch.forEach(item => {
+    if (storedLikes[item.id]) {
+      item.likes = storedLikes[item.id].likes;
+      item.liked = storedLikes[item.id].liked;
+    } else item.liked = false;
+
+    const div = document.createElement("div");
+    div.classList.add("item");
+    div.innerHTML = `
+      <img src="${item.img}" alt="${item.name}">
+      <h3>${item.name}</h3>
+      <p><strong>שנה:</strong> ${item.year}</p>
+      <p><strong>לייקים:</strong> <span class="like-count">${item.likes}</span></p>
+      <button class="like-btn ${item.liked ? 'liked' : ''}">
+        <span class="heart">${item.liked ? '❤️' : '🤍'}</span> לייק
+      </button>
+    `;
+
+    const btn = div.querySelector(".like-btn");
+    const heart = btn.querySelector(".heart");
+    const count = div.querySelector(".like-count");
+
+    btn.addEventListener("click", () => {
+      item.liked = !item.liked;
+      item.likes += item.liked ? 1 : -1;
+      btn.classList.toggle("liked", item.liked);
+      heart.textContent = item.liked ? "❤️" : "🤍";
+      if (item.liked) createParticles(div);
+      count.textContent = item.likes;
+      storedLikes[item.id] = { likes: item.likes, liked: item.liked };
+      localStorage.setItem("likes", JSON.stringify(storedLikes));
+    });
+
+    grid.appendChild(div);
+  });
+
+  isLoadingMore = false;
+  window.addEventListener("scroll", handleScroll);
+}
+
+
+
+
+
     function renderNewest(list) {
       newestDiv.innerHTML = "";
       const title = document.createElement("h2");
@@ -1261,10 +1550,9 @@
     
     function renderFlatCatalog(list) {
   catalogDiv.innerHTML = ""; // clear everything
-  newestDiv.innerHTML = ""; // clear everything
 
   const title = document.createElement("h2");
-  title.textContent = `Search Results(${list.length})`;
+  title.textContent = `תוצאות(${list.length})`;
   title.style.textAlign = "center";
   title.style.marginTop = "40px";
   title.style.color = "#e50914";
@@ -1430,7 +1718,7 @@
         isSorted = true;
         sortBtn.textContent = "החזר לסדר המקורי";
       } else {
-        catalog.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        catalog.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         isSorted = false;
         sortBtn.textContent = "מיין אלפביתי לפי שם";
       }
@@ -1439,36 +1727,8 @@
     });
   
     // Search filter
-    searchInput.addEventListener("input", () => {
-  const query = searchInput.value.toLowerCase();
+    searchInput.addEventListener("input", applyFilters);
 
-  if (!query) {
-    // If search is empty, go back to grouped view
-    const newest = [...catalog]
-    .sort((a, b) => {
-          const dateA = new Date(a.updatedAt);
-          const dateB = new Date(b.updatedAt);
-          console.log('Comparing:', a.name, dateA, 'vs', b.name, dateB, '=>', dateB - dateA);
-          return dateB - dateA;
-      })
-      .slice(0, 10);
-    renderNewest(newest);
-    groupByGenre();
-    renderGroupedCatalog();
-    return;
-  }
-
-  // Filter catalog
-  const filtered = catalog.filter(
-    item =>
-      item.name.toLowerCase().includes(query) ||
-      item.genre.some(g => g.toLowerCase().includes(query))
-  );
-
-  // Render flat list
-  renderFlatCatalog(filtered);
-});
-    
-  </script>
+  </script>  
 </body>
 </html>

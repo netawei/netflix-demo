@@ -696,7 +696,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
     }
 
     async function sendProgressUpdate(forcedValue) {
-      if (!userId || !contentId || !activeProfile.profileId) return;
+      if (!userId || !contentId) return;
       const progressValue = typeof forcedValue === 'number'
         ? forcedValue
         : Math.floor(videoPlayer.currentTime || 0);
@@ -706,6 +706,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
 
       try {
         if (isEpisode) {
+          console.log(activeProfile)
           // Save episode progress
           const completed = progressValue >= (contentDuration * 0.9);
           await fetch(`${WATCH_HISTORY_BASE}/episode-progress`, {
@@ -716,7 +717,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             credentials: 'include',
             body: JSON.stringify({
               user: userId,
-              profile: activeProfile.profileId,
+              profile: activeProfile.originalProfile._id,
               content: contentId,
               seasonNumber: parseInt(seasonNumber),
               episodeNumber: parseInt(episodeNumber),
@@ -742,7 +743,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             credentials: 'include',
             body: JSON.stringify({
               user: userId,
-              profile: activeProfile.profileId,
+              profile: activeProfile.originalProfile._id,
               content: contentId,
               progress: progressValue
             })
