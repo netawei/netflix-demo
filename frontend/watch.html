@@ -696,7 +696,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
     }
 
     async function sendProgressUpdate(forcedValue) {
-      if (!userId || !contentId) return;
+      if (!userId || !contentId || !activeProfile.profileId) return;
       const progressValue = typeof forcedValue === 'number'
         ? forcedValue
         : Math.floor(videoPlayer.currentTime || 0);
@@ -716,6 +716,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             credentials: 'include',
             body: JSON.stringify({
               user: userId,
+              profile: activeProfile.profileId,
               content: contentId,
               seasonNumber: parseInt(seasonNumber),
               episodeNumber: parseInt(episodeNumber),
@@ -741,6 +742,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             credentials: 'include',
             body: JSON.stringify({
               user: userId,
+              profile: activeProfile.profileId,
               content: contentId,
               progress: progressValue
             })

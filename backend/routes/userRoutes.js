@@ -12,7 +12,8 @@ const {
   getProfileFavorites,
   getRecommendations,
   updateProfile,
-  deleteProfile
+  deleteProfile,
+  getStatistics
 } = require('../controllers/userController');
 
 router.post('/register', registerUser);
@@ -27,5 +28,6 @@ router.post('/profiles/liked-content', getProfileLikedContent);
 router.post('/profiles/favorite', toggleFavoriteContent);
 router.post('/profiles/favorites', getProfileFavorites);
 router.post('/profiles/recommendations', getRecommendations);
+router.get('/:userId/statistics', getStatistics);
 
 module.exports = router;

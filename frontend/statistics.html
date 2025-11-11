@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>סטטיסטיקות צפייה</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      background: #141414;
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 40px;
+      text-align: center;
+      color: #e50914;
+    }
+    
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    
+    .chart-container {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 30px;
+    }
+    
+    .chart-title {
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      color: #fff;
+      text-align: center;
+    }
+    
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+    }
+    
+    .profile-selector {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .profile-selector label {
+      font-size: 1rem;
+      color: #fff;
+    }
+    
+    .profile-selector select {
+      padding: 8px 15px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      min-width: 150px;
+    }
+    
+    .profile-selector select:hover {
+      background: rgba(0, 0, 0, 0.7);
+      border-color: #e50914;
+    }
+    
+    .profile-selector select:focus {
+      outline: none;
+      border-color: #e50914;
+    }
+    
+    .back-btn {
+      display: block;
+      width: 200px;
+      margin: 0 auto;
+      padding: 12px;
+      background: #e50914;
+      color: #fff;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .back-btn:hover {
+      background: #f6121d;
+    }
+    
+    .error {
+      background: rgba(229, 9, 20, 0.1);
+      border: 1px solid #e50914;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: #ff6b6b;
+      margin-bottom: 20px;
+    }
+    
+    @media (max-width: 768px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>סטטיסטיקות צפייה</h1>
+    
+    <div id="errorMessage" class="error" style="display: none;"></div>
+    
+    <div class="charts-grid">
+      <div class="chart-container">
+        <h2 class="chart-title">צפיות יומיות לפי פרופיל</h2>
+        <div class="profile-selector">
+          <label for="profileSelect">בחר פרופיל:</label>
+          <select id="profileSelect">
+            <option value="">טוען...</option>
+          </select>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="dailyViewsChart"></canvas>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <h2 class="chart-title">פופולריות תכנים לפי ז'אנר</h2>
+        <div class="chart-wrapper">
+          <canvas id="genreChart"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <button class="back-btn" onclick="window.location.href='profiles.html'">חזרה לפרופילים</button>
+  </div>
+
+  <script>
+    const API_BASE_URL = 'http://localhost:5001/api';
+    const userId = localStorage.getItem("userId");
+    
+    if (!userId) {
+      alert("אנא התחבר תחילה");
+      window.location.href = "index.html";
+    }
+
+    let dailyViewsChart = null;
+    let statisticsData = null;
+
+    async function fetchStatistics() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/users/${userId}/statistics`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch statistics');
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Error fetching statistics:', error);
+        document.getElementById('errorMessage').style.display = 'block';
+        document.getElementById('errorMessage').textContent = 'שגיאה בטעינת הנתונים';
+        return null;
+      }
+    }
+
+    function createDailyViewsChart(data, selectedProfile) {
+        const ctx = document.getElementById('dailyViewsChart').getContext('2d');
+        
+        if (dailyViewsChart) {
+            dailyViewsChart.destroy();
+            dailyViewsChart = null;
+        }
+        
+        const profileData = data.profileViews.find(p => p.profileName === selectedProfile);
+        
+        if (!profileData) {
+            console.error('Profile not found:', selectedProfile);
+            return;
+        }
+        
+        dailyViewsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+            labels: data.dates,
+            datasets: [{
+                label: '',
+                data: profileData.dailyViews,
+                backgroundColor: 'rgba(229, 9, 20, 0.7)',
+                borderColor: 'rgba(229, 9, 20, 1)',
+                borderWidth: 2,
+                borderRadius: 5,
+                hoverBackgroundColor: 'rgba(229, 9, 20, 0.9)'
+            }]
+            },
+            options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                display: false
+                },
+                tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: false,
+                callbacks: {
+                    label: function(context) {
+                    const views = context.parsed.y;
+                    const movieIcon = '🎬';
+                    return views === 1 ? `${movieIcon} צפייה אחת` : `${movieIcon} ${views} צפיות`;
+                    }
+                }
+                }
+            },
+            scales: {
+                x: {
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)',
+                    drawBorder: false
+                },
+                ticks: {
+                    color: '#fff',
+                    font: {
+                    size: 12
+                    }
+                }
+                },
+                y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)',
+                    drawBorder: false
+                },
+                ticks: {
+                    color: '#fff',
+                    font: {
+                    size: 12
+                    },
+                    stepSize: 1,
+                    callback: function(value) {
+                    if (Number.isInteger(value)) {
+                        return value;
+                    }
+                    }
+                }
+                }
+            },
+            animation: {
+                duration: 750,
+                easing: 'easeInOutQuart'
+            }
+            }
+        });
+        }
+    function createGenreChart(data) {
+        const ctx = document.getElementById('genreChart').getContext('2d');
+ 
+        const pastelColors = [
+            'rgba(229, 9, 20, 0.9)',
+            'rgba(183, 7, 16, 0.9)',
+            'rgba(192, 192, 192, 0.9)',
+            'rgba(255, 140, 90, 0.9)',
+            'rgba(220, 20, 60, 0.9)',
+            'rgba(255, 51, 61, 0.9)',
+            'rgba(145, 5, 12, 0.9)',
+            'rgba(255, 102, 107, 0.9)',
+            'rgba(64, 64, 64, 0.9)',
+            'rgba(128, 128, 128, 0.9)'
+          
+        ];
+        
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+            labels: data.genres,
+            datasets: [{
+                data: data.viewCounts,
+                backgroundColor: pastelColors.slice(0, data.genres.length),
+                borderColor: '#141414',
+                borderWidth: 2,
+                hoverOffset: 10
+            }]
+            },
+            options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                display: false
+                },
+                tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: true, 
+                callbacks: {
+                    label: function(context) {
+                    const label = context.label || '';
+                    const value = context.parsed;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return `${label}: ${value} צפיות (${percentage}%)`;
+                    }
+                }
+                }
+            }
+            }
+        });
+        }
+    function populateProfileDropdown(data) {
+        const select = document.getElementById('profileSelect');
+        select.innerHTML = '';
+        
+        console.log('📊 Profile data received:', data);
+        
+        data.profileViews.forEach((profile, index) => {
+            const option = document.createElement('option');
+            option.value = profile.profileName;
+            option.textContent = profile.profileName;
+            if (index === 0) option.selected = true;
+            select.appendChild(option);
+            console.log(`Added profile: ${profile.profileName}`);
+        });
+
+        select.addEventListener('change', (e) => {
+            console.log('Profile changed to:', e.target.value);
+            createDailyViewsChart(statisticsData.dailyViewsData || statisticsData, e.target.value);
+        });
+        
+        if (data.profileViews.length > 0) {
+            console.log('Creating initial chart for:', data.profileViews[0].profileName);
+            createDailyViewsChart(data.dailyViewsData || data, data.profileViews[0].profileName);
+        }
+        }
+
+    async function loadStatistics() {
+        try {
+            const data = await fetchStatistics();
+            
+            if (!data) {
+            throw new Error('No data received');
+            }
+            
+            console.log('Received statistics data:', data);
+            
+            if (!data.profileViews || data.profileViews.length === 0) {
+            document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('errorMessage').textContent = 'אין עדיין נתוני צפייה. התחל לצפות בתכנים כדי לראות סטטיסטיקות!';
+            return;
+            }
+            
+            statisticsData = data.dailyViewsData || { dates: data.dates, profileViews: data.profileViews };
+            populateProfileDropdown(statisticsData);
+
+            if (data.genreStats && data.genreStats.genres.length > 0) {
+            createGenreChart(data.genreStats);
+            } else {
+            console.log('No genre data available');
+            }
+            
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+            document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('errorMessage').textContent = 'שגיאה בטעינת הנתונים. נסה שוב מאוחר יותר.';
+        }
+    }
+
+    loadStatistics();
+  </script>
+</body>
+</html>
