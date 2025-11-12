@@ -114,18 +114,6 @@ exports.getContentById = async (req, res) => {
     }
 };
 
-
-exports.searchContent = async (req, res) => {
-    const query = req.query.q;
-    try {
-        const results = await Content.find({ title: new RegExp(query, 'i') });
-        res.json(results);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-
 exports.updateContent = async (req, res) => {
     try {
         const updated = await Content.findByIdAndUpdate(req.params.id, req.body, { new: true });
