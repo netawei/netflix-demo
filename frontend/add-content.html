@@ -256,6 +256,10 @@
       gap: 15px;
       align-items: center;
     }
+    .episode-item.has-error {
+      border-color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.05);
+    }
     .episode-file-input {
       padding: 6px;
       background: #000;
@@ -263,6 +267,9 @@
       border-radius: 4px;
       color: #e5e5e5;
       font-size: 12px;
+    }
+    .episode-file-input.error {
+      border-color: #ff6b6b;
     }
     .episode-number {
       color: #e50914;
@@ -276,6 +283,9 @@
       border-radius: 4px;
       color: #e5e5e5;
       font-size: 14px;
+    }
+    .episode-input.error {
+      border-color: #ff6b6b;
     }
     .btn-add-episode {
       margin-top: 10px;
@@ -300,6 +310,15 @@
     }
     .collapsed .episodes-container {
       display: none;
+    }
+    .inline-error {
+      background: #ff6b6b;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+      animation: slideDown 0.5s ease-out;
     }
   </style>
 </head>
@@ -390,7 +409,7 @@
       </div>
 
       <div class="buttons-container">
-        <button type="button" class="btn btn-secondary" onclick="window.location.href='profiles.html'">
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='admin-dashboard.html'">
           ביטול
         </button>
         <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -407,7 +426,6 @@
     const BACKEND_URL= localStorage.getItem("BackendURL");
     
     if (!isAdmin || !userId) {
-      alert("אין לך הרשאות לגשת לעמוד זה");
       window.location.href = "profiles.html";
     }
 
@@ -446,7 +464,24 @@
       }
     }
 
+    function saveCurrentEpisodeData() {
+      seasons.forEach((season, seasonIndex) => {
+        season.episodes.forEach((episode, episodeIndex) => {
+          const titleInput = document.getElementById(`episodeTitle_${seasonIndex}_${episodeIndex}`);
+          const durationInput = document.querySelector(`#episode_${seasonIndex}_${episodeIndex} input[type="number"]`);
+          
+          if (titleInput) {
+            episode.title = titleInput.value;
+          }
+          if (durationInput) {
+            episode.duration = parseInt(durationInput.value) || 45;
+          }
+        });
+      });
+    }
+
     function addSeason() {
+      saveCurrentEpisodeData();
       const seasonNumber = seasons.length + 1;
       seasons.push({
         seasonNumber: seasonNumber,
@@ -456,6 +491,7 @@
     }
 
     function removeSeason(index) {
+      saveCurrentEpisodeData();
       seasons.splice(index, 1);
       seasons.forEach((season, i) => {
         season.seasonNumber = i + 1;
@@ -464,6 +500,7 @@
     }
 
     function addEpisode(seasonIndex) {
+      saveCurrentEpisodeData();
       const season = seasons[seasonIndex];
       const episodeNumber = season.episodes.length + 1;
       season.episodes.push({
@@ -476,6 +513,7 @@
     }
 
     function removeEpisode(seasonIndex, episodeIndex) {
+      saveCurrentEpisodeData();
       seasons[seasonIndex].episodes.splice(episodeIndex, 1);
       seasons[seasonIndex].episodes.forEach((episode, i) => {
         episode.episodeNumber = i + 1;
@@ -485,19 +523,61 @@
 
     function updateEpisode(seasonIndex, episodeIndex, field, value) {
       seasons[seasonIndex].episodes[episodeIndex][field] = value;
+      const input = document.querySelector(`#episodeTitle_${seasonIndex}_${episodeIndex}`);
+      if (input && value) {
+        input.classList.remove('error');
+      }
     }
 
     function updateEpisodeFile(seasonIndex, episodeIndex, file) {
       seasons[seasonIndex].episodes[episodeIndex].videoFile = file;
       const statusSpan = document.getElementById(`episodeFileStatus_${seasonIndex}_${episodeIndex}`);
+      const fileInput = document.getElementById(`episodeFile_${seasonIndex}_${episodeIndex}`);
+      
       if (statusSpan && file) {
         statusSpan.textContent = '✓ ' + file.name;
+        statusSpan.style.color = '#27ae60';
+        if (fileInput) {
+          fileInput.classList.remove('error');
+        }
       }
     }
 
     function toggleSeason(index) {
       const seasonElement = document.querySelectorAll('.season-item')[index];
       seasonElement.classList.toggle('collapsed');
+    }
+
+    function validateEpisodes() {
+      let hasErrors = false;
+
+      seasons.forEach((season, seasonIndex) => {
+        season.episodes.forEach((episode, episodeIndex) => {
+          
+          if (!episode.title || episode.title.trim() === '') {
+            hasErrors = true;
+            const titleInput = document.getElementById(`episodeTitle_${seasonIndex}_${episodeIndex}`);
+            if (titleInput) {
+              titleInput.classList.add('error');
+            }
+          }
+          
+          if (!episode.videoFile) {
+            hasErrors = true;
+            const fileInput = document.getElementById(`episodeFile_${seasonIndex}_${episodeIndex}`);
+            if (fileInput) {
+              fileInput.classList.add('error');
+            }
+            const statusSpan = document.getElementById(`episodeFileStatus_${seasonIndex}_${episodeIndex}`);
+            if (statusSpan) {
+              statusSpan.textContent = 'חובה להעלות קובץ וידאו';
+              statusSpan.style.color = '#ff6b6b';
+            }
+          }
+        });
+      });
+
+      return hasErrors;
     }
 
     function renderSeasons() {
@@ -515,13 +595,16 @@
           </div>
           <div class="episodes-container">
             ${season.episodes.map((episode, episodeIndex) => `
-              <div class="episode-item">
+              <div class="episode-item" id="episode_${seasonIndex}_${episodeIndex}">
                 <div class="episode-number">פרק ${episode.episodeNumber}</div>
-                <input type="text" 
-                       class="episode-input" 
-                       placeholder="שם הפרק"
-                       value="${episode.title}"
-                       onchange="updateEpisode(${seasonIndex}, ${episodeIndex}, 'title', this.value)">
+                <div>
+                  <input type="text" 
+                         class="episode-input" 
+                         id="episodeTitle_${seasonIndex}_${episodeIndex}"
+                         placeholder="שם הפרק *"
+                         value="${episode.title}"
+                         onchange="updateEpisode(${seasonIndex}, ${episodeIndex}, 'title', this.value)">
+                </div>
                 <input type="number" 
                        class="episode-input" 
                        placeholder="משך (דקות)"
@@ -553,10 +636,10 @@
       seasons.forEach((season, seasonIndex) => {
         season.episodes.forEach((episode, episodeIndex) => {
           if (episode.videoFile) {
-            const fileInput = document.getElementById(`episodeFile_${seasonIndex}_${episodeIndex}`);
             const statusSpan = document.getElementById(`episodeFileStatus_${seasonIndex}_${episodeIndex}`);
             if (statusSpan) {
               statusSpan.textContent = '✓ ' + episode.videoFile.name;
+              statusSpan.style.color = '#27ae60';
             }
           }
         });
@@ -630,11 +713,31 @@
       }
     });
 
+    function showError(message) {
+      const existingError = document.querySelector('.inline-error');
+      if (existingError) {
+        existingError.remove();
+      }
+      
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'inline-error';
+      errorDiv.textContent = message;
+      document.querySelector('.container').insertBefore(errorDiv, document.getElementById('contentForm'));
+      
+      setTimeout(() => {
+        errorDiv.remove();
+      }, 5000);
+    }
+
     document.getElementById('contentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       document.querySelectorAll('.error-message').forEach(el => {
         el.style.display = 'none';
+      });
+      
+      document.querySelectorAll('.episode-input, .episode-file-input').forEach(el => {
+        el.classList.remove('error');
       });
       
       let hasError = false;
@@ -676,13 +779,25 @@
         }
       }
       
-      if (type === 'series' && (seasons.length === 0 || !seasons.some(s => s.episodes.length > 0))) {
-        alert('סדרה חייבת להכיל לפחות פרק אחד');
-        hasError = true;
+      if (type === 'series') {
+        saveCurrentEpisodeData();
+        
+        if (seasons.length === 0 || !seasons.some(s => s.episodes.length > 0)) {
+          hasError = true;
+          showError('סדרה חייבת להכיל לפחות פרק אחד');
+        } else {
+          const episodeValidationError = validateEpisodes();
+          if (episodeValidationError) {
+            hasError = true;
+            document.querySelectorAll('.season-item.collapsed').forEach(el => {
+              el.classList.remove('collapsed');
+            });
+          }
+        }
       }
       
       if (hasError) {
-        const firstError = document.querySelector('.error-message[style*="block"]');
+        const firstError = document.querySelector('.error-message[style*="block"], .episode-input.error, .episode-file-input.error');
         if (firstError) {
           firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -698,17 +813,16 @@
         const formData = new FormData();
         formData.append('poster', posterFile);
         if (type === 'movie' && document.getElementById('videoFile').files[0]) {
-        formData.append('video', document.getElementById('videoFile').files[0]);
+          formData.append('video', document.getElementById('videoFile').files[0]);
         }
         if (type === 'series') {
-        seasons.forEach((season, seasonIndex) => {
+          seasons.forEach((season, seasonIndex) => {
             season.episodes.forEach((episode, episodeIndex) => {
-            if (episode.videoFile) {
+              if (episode.videoFile) {
                 formData.append(`episodeVideo_${seasonIndex}_${episodeIndex}`, episode.videoFile);
-                console.log(`Adding episode video: episodeVideo_${seasonIndex}_${episodeIndex}`, episode.videoFile.name);
-            }
+              }
             });
-        });
+          });
         }
         formData.append('userId', userId);
         const contentData = {
@@ -754,11 +868,11 @@
           }, 5000);
         } else {
           const error = await response.json();
-          alert('שגיאה בהוספת התוכן: ' + (error.message || 'שגיאה לא ידועה'));
+          showError('שגיאה בהוספת התוכן: ' + (error.message || 'שגיאה לא ידועה'));
         }
       } catch (error) {
         console.error('Error adding content:', error);
-        alert('שגיאה בהוספת התוכן. נסה שוב.');
+        showError('שגיאה בהוספת התוכן. נסה שוב.');
       } finally {
         submitBtn.disabled = false;
         loadingSpinner.classList.remove('active');
