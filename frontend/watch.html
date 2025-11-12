@@ -144,9 +144,12 @@
       border: 1px solid rgba(255, 255, 255, 0.4);
       color: var(--text);
     }
-    .status-actions button:hover {
-      transform: translateY(-1px);
-      opacity: 0.92;
+    .play-pause-btn {
+      background: linear-gradient(135deg, #e50914, #b00610) !important;
+    }
+
+    .play-pause-btn:hover {
+      background: linear-gradient(135deg, #f6121d, #c50e15) !important;
     }
     .error-banner {
       background: rgba(229, 9, 20, 0.15);
@@ -273,6 +276,161 @@
         transform: rotate(360deg);
       }
     }
+    /* Dropdown Styling */
+    .episodes-dropdown-btn {
+      background: linear-gradient(135deg, rgba(229, 9, 20, 0.2), rgba(176, 6, 16, 0.2));
+      border: 1px solid rgba(229, 9, 20, 0.5);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .episodes-dropdown-btn:hover {
+      background: linear-gradient(135deg, rgba(229, 9, 20, 0.4), rgba(176, 6, 16, 0.4));
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
+    }
+
+    .episodes-dropdown-menu {
+      background: rgba(20, 20, 20, 0.98);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      position: absolute;
+      left: 0;
+      top: calc(100% + 4px);
+      width: 300px;
+      z-index: 1000;
+    }
+
+    .season-group {
+      margin-bottom: 16px;
+    }
+
+    .season-header {
+      font-weight: bold;
+      color: var(--primary);
+      padding: 10px 12px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s;
+      border-left: 3px solid var(--primary);
+      background: rgba(229, 9, 20, 0.1);
+    }
+
+    .season-header:hover {
+      background: rgba(229, 9, 20, 0.2);
+    }
+
+    .episodes-list-dropdown {
+      padding-left: 12px;
+      margin-top: 8px;
+    }
+
+    .episode-item-dropdown {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+      border-left: 2px solid transparent;
+    }
+
+    .episode-item-dropdown:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-left-color: var(--primary);
+      transform: translateX(4px);
+    }
+
+    .episode-item-dropdown.current {
+      background: rgba(229, 9, 20, 0.2);
+      border-left-color: var(--primary);
+      font-weight: 600;
+    }
+
+    .episode-progress-container {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .episode-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #e50914, #f40612);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px rgba(229, 9, 20, 0.6);
+    }
+
+    .episode-info-text {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .episode-duration {
+      font-size: 10px;
+      color: #888;
+      margin-left: 8px;
+    }
+
+    /* Icon Button Styling */
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      padding: 0;
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .icon-btn .icon-number {
+      position: absolute;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    /* Forward and Rewind button styling */
+    #rewind10Btn, #forward10Btn {
+      font-size: 22px;
+      position: relative;
+      font-weight: normal;
+    }
+
+    #rewind10Btn .icon-wrapper,
+    #forward10Btn .icon-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #rewind10Btn .icon-number,
+    #forward10Btn .icon-number {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    
   </style>
 </head>
 <body>
@@ -296,9 +454,13 @@
       <div class="content-header">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
           <h1 id="contentTitle">...</h1>
-          <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
-            Episodes ▼
-          </button>
+          <div style="position: relative;">
+            <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
+              Episodes ▼
+            </button>
+            <!-- Move dropdown inside the relative div -->
+            <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
+          </div>
         </div>
         <div class="metadata" id="contentMeta"></div>
       </div>
@@ -322,10 +484,14 @@
           <strong>Status:</strong> <span id="statusText">Preparing video...</span>
         </div>
         <div class="status-actions">
-          <button class="btn-secondary" id="rewind10Btn">↺ Rewind 10s</button>
-          <button class="btn-secondary" id="forward10Btn">Forward 10s ↻</button>
-          <button class="btn-secondary" id="restartBtn">Restart</button>
-          <button class="btn-primary" id="resumeBtn">Resume</button>
+          <button class="btn-secondary icon-btn" id="forward10Btn" title="Forward 10s">
+            <span class="icon-wrapper">⟳<span class="icon-number">10</span></span>
+          </button>
+          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
+            <span class="icon-wrapper">⟲<span class="icon-number">10</span></span>
+          </button>
+          <button class="btn-secondary icon-btn" id="restartBtn" title="Restart">⟲</button>
+          <button class="btn-primary icon-btn play-pause-btn" id="resumeBtn" title="Play">▶</button>
         </div>
       </div>
     </section>
@@ -391,13 +557,10 @@
     });
 
     resumeBtn.addEventListener('click', () => {
-      if (currentProgress > 0 && currentProgress < videoPlayer.duration) {
-        showLoadingOverlay('Resuming...');
-        videoPlayer.currentTime = currentProgress;
-        statusText.textContent = 'Resumed from last position';
+      if (videoPlayer.paused) {
         videoPlayer.play();
-        // Hide loading when video starts
-        setTimeout(() => hideLoadingOverlay(), 500);
+      } else {
+        videoPlayer.pause();
       }
     });
 
@@ -484,35 +647,57 @@
     }
   });
   
-  // Previous episode button
+  // Previous episode button - insert before play/pause button
   if (hasPrevious) {
     const prevBtn = document.createElement('button');
-    prevBtn.classList.add('btn-secondary');
-    prevBtn.textContent = '← Previous Episode';
+    prevBtn.classList.add('btn-secondary', 'icon-btn');
+    prevBtn.innerHTML = '⏮';
+    prevBtn.title = 'Previous Episode';
     prevBtn.addEventListener('click', () => {
       const prevEpisode = season.episodes[currentIndex - 1];
       navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
     });
-    statusActions.prepend(prevBtn);
+    // Insert before play/pause button
+    const playPauseBtn = document.getElementById('resumeBtn');
+    statusActions.insertBefore(prevBtn, playPauseBtn);
   }
-  
-  // Next episode button
+
+ // Next episode button - insert after previous button
   if (hasNext) {
     const nextBtn = document.createElement('button');
-    nextBtn.classList.add('btn-primary');
-    nextBtn.textContent = 'Next Episode →';
+    nextBtn.classList.add('btn-primary', 'icon-btn');
+    nextBtn.innerHTML = '⏭';
+    nextBtn.title = 'Next Episode';
     nextBtn.id = 'nextEpisodeBtn';
     nextBtn.style.display = 'none';
     nextBtn.addEventListener('click', () => {
       const nextEpisode = season.episodes[currentIndex + 1];
       navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
     });
-    statusActions.appendChild(nextBtn);
+    // Insert as second button (after previous, before forward)
+    const forwardBtn = document.getElementById('forward10Btn');
+    statusActions.insertBefore(nextBtn, forwardBtn);
   }
 }
 
-function buildEpisodesDropdown(content, dropdownMenu) {
+async function buildEpisodesDropdown(content, dropdownMenu) {
   dropdownMenu.innerHTML = '';
+  
+  // Fetch episode progress for all episodes
+  let episodeProgressData = {};
+  if (userId) {
+    try {
+      const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${contentId}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        episodeProgressData = await response.json();
+      }
+    } catch (error) {
+      console.error('Error loading episode progress:', error);
+    }
+  }
   
   content.seasons.forEach(season => {
     const seasonGroup = document.createElement('div');
@@ -540,10 +725,45 @@ function buildEpisodesDropdown(content, dropdownMenu) {
         episodeItem.classList.add('current');
       }
       
-      const episodeInfo = document.createElement('span');
-      episodeInfo.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
+      // Find progress for this episode
+      const episodeProgress = (episodeProgressData.episodeProgress || []).find(
+        progress => progress.seasonNumber === season.seasonNumber && 
+                   progress.episodeNumber === ep.episodeNumber
+      );
       
-      episodeItem.appendChild(episodeInfo);
+      const progress = episodeProgress?.progress || 0;
+      const duration = ep.duration || 0;
+      const progressPercentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
+      
+      // Create episode info container
+      const episodeInfoDiv = document.createElement('div');
+      episodeInfoDiv.classList.add('episode-info-text');
+      
+      const episodeTitle = document.createElement('span');
+      episodeTitle.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
+      
+      const episodeDuration = document.createElement('span');
+      episodeDuration.classList.add('episode-duration');
+      if (duration > 0) {
+        episodeDuration.textContent = formatPlaybackTime(duration);
+      }
+      
+      episodeInfoDiv.appendChild(episodeTitle);
+      episodeInfoDiv.appendChild(episodeDuration);
+      episodeItem.appendChild(episodeInfoDiv);
+      
+      // Add progress bar if there's any progress
+      if (progressPercentage > 0) {
+        const progressContainer = document.createElement('div');
+        progressContainer.classList.add('episode-progress-container');
+        
+        const progressBar = document.createElement('div');
+        progressBar.classList.add('episode-progress-bar');
+        progressBar.style.width = `${progressPercentage}%`;
+        
+        progressContainer.appendChild(progressBar);
+        episodeItem.appendChild(progressContainer);
+      }
       
       episodeItem.addEventListener('click', () => {
         navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
@@ -650,12 +870,16 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       videoPlayer.addEventListener('play', () => {
         statusText.textContent = 'Playing';
         startProgressInterval();
+        resumeBtn.innerHTML = '❚❚';
+        resumeBtn.title = 'Pause';
       });
 
       videoPlayer.addEventListener('pause', () => {
         statusText.textContent = 'Paused';
         sendProgressUpdate();
         clearProgressInterval();
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'Play';
       });
 
       videoPlayer.addEventListener('ended', () => {
@@ -782,12 +1006,14 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
     }
 
     function updateResumeButtonState() {
-      if (currentProgress > 0) {
-        resumeBtn.disabled = false;
-        resumeBtn.textContent = 'Resume from last position';
+      resumeBtn.disabled = false;
+      resumeBtn.style.opacity = '1';
+      if (videoPlayer.paused) {
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'Play';
       } else {
-        resumeBtn.disabled = true;
-        resumeBtn.textContent = 'No saved position';
+        resumeBtn.innerHTML = '❚❚';
+        resumeBtn.title = 'Pause';
       }
     }
 
