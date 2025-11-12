@@ -6,7 +6,6 @@ const {
     getAllContent,
     getContentCast,
     getContentById,
-    searchContent,
     updateContent,
     deleteContent 
 } = require('../controllers/contentController');
@@ -17,7 +16,6 @@ router.post('/',
 );
 
 router.get('/', getAllContent);
-router.get('/search', searchContent);
 router.get('/:id/cast', getContentCast);
 router.get('/:id', getContentById);
 router.put('/:id', updateContent);

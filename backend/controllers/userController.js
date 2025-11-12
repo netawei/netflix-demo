@@ -2,7 +2,6 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 
-
 exports.registerUser = async (req, res) => {
     try {
       const { name, email, password } = req.body;
@@ -21,7 +20,7 @@ exports.registerUser = async (req, res) => {
         name,
         email,
         password: hashedPassword,
-        isAdmin: false // Add default value
+        isAdmin: false
       });
   
       req.session.user = {
@@ -31,7 +30,6 @@ exports.registerUser = async (req, res) => {
         isAdmin: newUser.isAdmin
       };
   
-      // Return JSON instead of plain text
       res.status(201).json({
         success: true,
         message: 'נרשמת בהצלחה',
