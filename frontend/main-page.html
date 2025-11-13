@@ -96,7 +96,7 @@
 
 .top-bar {
   display: flex;
-  justify-content: flex-start; /* ✅ changed from flex-end to flex-start */
+  justify-content: flex-start; 
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
@@ -104,14 +104,13 @@
   direction: rtl;
 }
 
-/* Search box */
 .search-box {
   padding: 10px;
   font-size: 16px;
   border-radius: 6px;
   border: none;
   width: 250px;
-  direction: rtl; /* optional if Hebrew text */
+  direction: rtl; 
 }
 
 /* Dropdowns */
@@ -122,7 +121,7 @@
   border: none;
   background-color: #f0f0f0;
   cursor: pointer;
-  direction: rtl; /* for Hebrew alignment */
+  direction: rtl; 
 }
 
 
@@ -426,8 +425,8 @@
     const userId = activeProfile?.userId || localStorage.getItem("userId");
     const profileName = activeProfile?.name;
     const activeProfileId = activeProfile?.originalProfile?._id;
-    let likedContentIds = []; // Array of content IDs that are liked by this profile
-    let favoriteContentIds = []; // Array of content IDs that are favorited by this profile
+    let likedContentIds = [];
+    let favoriteContentIds = [];
     
 
     const catalogDiv = document.getElementById("catalog");
@@ -577,12 +576,10 @@
           let progress = history.progress || 0;
           let currentEpisodeInfo = null;
           
-          // For series, check episode progress
           if (content.type === 'series' && episodeProgressData[contentId]) {
             const seriesProgress = episodeProgressData[contentId];
             if (seriesProgress.currentEpisode) {
               currentEpisodeInfo = seriesProgress.currentEpisode;
-              // Find the progress for current episode
               const currentEpProgress = (seriesProgress.episodeProgress || []).find(
                 ep => ep.seasonNumber === currentEpisodeInfo.seasonNumber && 
                       ep.episodeNumber === currentEpisodeInfo.episodeNumber
@@ -665,7 +662,6 @@
 
         if (response.ok) {
           const data = await response.json();
-          // Ensure all IDs are strings for consistent comparison
           likedContentIds = (data.likedContent || []).map(id => String(id));
           return likedContentIds;
         } else {
@@ -729,11 +725,7 @@
       return `${minutes}:${String(secs).padStart(2, '0')}`;
     }
 
-    // Add this function somewhere in your <script> section, before setupWatchButtons
-
     async function openEpisodesOverlay(item) {
-      // Navigate to a page that shows episodes, or open a modal
-      // For now, let's navigate to the first episode
       
       if (!item.id) {
         alert('לא ניתן לטעון פרקים');
@@ -741,7 +733,6 @@
       }
 
       try {
-        // Fetch series data to get episodes
         const response = await fetch(`${BACKEND_URL}/api/content/${item.id}`);
         if (!response.ok) {
           throw new Error('Failed to fetch series data');
@@ -749,13 +740,11 @@
         
         const seriesData = await response.json();
         
-        // Check if we have episodes
         if (!seriesData.seasons || seriesData.seasons.length === 0) {
           alert('לא נמצאו עונות לסדרה זו');
           return;
         }
 
-        // Navigate to watch page with first episode or current episode
         const params = new URLSearchParams({
           contentId: item.id,
           seasonNumber: item.currentEpisode?.seasonNumber || 1,
@@ -787,13 +776,11 @@
         });
       }
       
-      // Handle both continue buttons (series and movie)
       const continueBtn = container.querySelector('.btn-continue-watch, .btn-continue-series');
       if (continueBtn) {
         continueBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           if (item.type === 'series' && item.currentEpisode) {
-            // Continue from current episode for series
             const params = new URLSearchParams({
               contentId: item.id,
               seasonNumber: item.currentEpisode.seasonNumber,
@@ -801,7 +788,6 @@
             });
             window.location.href = `watch.html?${params.toString()}`;
           } else {
-            // Continue from saved progress for movies
             startWatch(item, false);
           }
         });
@@ -811,7 +797,6 @@
       if (restartSeriesBtn) {
         restartSeriesBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          // Restart from episode 1 of season 1
           const params = new URLSearchParams({
             contentId: item.id,
             seasonNumber: 1,
@@ -948,7 +933,6 @@
       window.location.href = `watch.html?${params.toString()}`;
     }
 
-    // Helper function to format movie metadata
     function formatMovieMetadata(item) {
       const ratingDisplay = item.rating && item.rating !== -1 
         ? `<div class="item-rating">
@@ -995,7 +979,6 @@
       `;
 
    
-      // Determine if this is a series
       const isSeries = item.type === 'series';
 
       let progressText = '';
@@ -1005,8 +988,6 @@
         progressText = `<p class="item-progress-text">Saved at ${formatPlaybackTime(item.progress)}</p>`;
       }
 
-      // For series: only show המשך צפייה if there's a current episode with progress
-      // For movies: only show המשך צפייה if there's progress
       const showContinueButton = isSeries 
         ? (item.currentEpisode && hasProgress)
         : hasProgress;
@@ -1050,8 +1031,6 @@
     function renderCatalog(items) {
       // Update liked status for all items
       items.forEach(item => {
-        // Check if this content is liked by the current profile
-        // Convert both to strings for consistent comparison
         const itemIdStr = String(item.id);
         item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
         item.favorited = favoriteContentIds.some(favId => String(favId) === itemIdStr);
@@ -1068,34 +1047,33 @@
       
       renderFavorites(items);
       renderNewest(newest);
-      // --- Calculate Just For You section ---
-const watchedGenresCount = {};
+      const watchedGenresCount = {};
 
-Object.keys(watchHistoryMap).forEach(contentId => {
-  const content = catalog.find(c => c.id === contentId);
-  if (content && Array.isArray(content.genre)) {
-    content.genre.forEach(g => {
-      watchedGenresCount[g] = (watchedGenresCount[g] || 0) + 1;
-    });
-  }
-});
+      Object.keys(watchHistoryMap).forEach(contentId => {
+        const content = catalog.find(c => c.id === contentId);
+        if (content && Array.isArray(content.genre)) {
+          content.genre.forEach(g => {
+            watchedGenresCount[g] = (watchedGenresCount[g] || 0) + 1;
+          });
+        }
+      });
 
-// Find top 2–3 genres watched most
-const topGenres = Object.entries(watchedGenresCount)
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 3)
-  .map(entry => entry[0]);
-console.log(topGenres)
-// Pick 6–7 recommendations matching those genres, excluding already watched
-const recommended = catalog.filter(
-  c => c.genre.some(g => topGenres.includes(g)) && !watchHistoryMap[c.id]
-).slice(0, 7);
+      // Find top 2–3 genres watched most
+      const topGenres = Object.entries(watchedGenresCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(entry => entry[0]);
+      console.log(topGenres)
+      // Pick 6–7 recommendations matching those genres, excluding already watched
+      const recommended = catalog.filter(
+        c => c.genre.some(g => topGenres.includes(g)) && !watchHistoryMap[c.id]
+      ).slice(0, 7);
 
-const shuffled = recommended.sort(() => Math.random() - 0.5);
-renderRecommended(shuffled.slice(0, 7));
-      groupByGenre();
-      renderGroupedCatalog();
-    }
+      const shuffled = recommended.sort(() => Math.random() - 0.5);
+      renderRecommended(shuffled.slice(0, 7));
+            groupByGenre();
+            renderGroupedCatalog();
+          }
 
     function renderFavorites(items) {
       if (!favoritesDiv) {
@@ -1280,7 +1258,6 @@ let isLoadingMore = false;
 function applyFilters() {
   const query = searchInput.value.toLowerCase().trim();
 
-  // Start from the full catalog
   let filtered = [...catalog];
 
   // Apply genre filter (if any selected)
@@ -1290,7 +1267,7 @@ function applyFilters() {
     );
   }
 
-  // Apply watched / not watched filter
+  // Apply watched/not watched filter
   const watchedFilter = document.getElementById("filterSelect").value;
 
   if (watchedFilter === "watched") {
@@ -1322,8 +1299,9 @@ function applyFilters() {
       .slice(0, 10);
     renderNewest(newest);
     if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0 && !document.getElementById("filterSelect").value) {
+  
   // Default full view (no filters applied)
-  renderCatalog(catalog); // ✅ will re-render newest + favorites + Just for You + genres
+  renderCatalog(catalog); 
   filteredResults = [];
   renderedCount = 0;
   return;
@@ -1332,7 +1310,6 @@ function applyFilters() {
   // If results fit in one page — render them all and don't attach scroll
   if (filteredResults.length <= itemsPerPage) {
     renderFlatCatalog(filteredResults);
-    // ensure there's no scroll listener
     return;
   }
 
@@ -1371,7 +1348,6 @@ function renderNextBatch(itemsPerPage = 50) {
 
   renderedCount = (renderedCount + itemsPerPage) % total;
 
-  // create grid if needed
   let grid = catalogDiv.querySelector(".catalog-grid");
   if (!grid) {
     const title = document.createElement("h2");
@@ -1502,14 +1478,9 @@ function renderRecommended(list) {
       grid.style.justifyContent = "flex-start";
       
       list.forEach(item => {
-        // Use the liked status from likedContentIds (loaded from database)
-        // item.liked is already set in renderCatalog() based on likedContentIds
-        // Only use storedLikes for likes count if needed, but not for liked status
         if (storedLikes[item.id] && storedLikes[item.id].likes !== undefined) {
           item.likes = storedLikes[item.id].likes;
         }
-        // Ensure liked status is based on database (likedContentIds)
-        // item.liked should already be set correctly in renderCatalog()
         const itemIdStr = String(item.id);
         item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
 
@@ -1537,7 +1508,6 @@ function renderRecommended(list) {
           const wasLiked = item.liked;
           item.liked = !item.liked;
           
-          // Update UI immediately for better UX
           if(item.liked){
             item.likes++;
             btn.classList.add("liked");
@@ -1554,7 +1524,6 @@ function renderRecommended(list) {
           count.textContent = item.likes;
           setTimeout(() => heart.classList.remove("animate"), 300);
 
-          // Save to backend
           if (userId && profileName) {
             try {
               const response = await fetch(`${API_BASE_URL}/profiles/like`, {
@@ -1566,7 +1535,7 @@ function renderRecommended(list) {
                   body: JSON.stringify({
                   userId: userId,
                   profileName: profileName,
-                  contentId: String(item.id), // Ensure contentId is a string
+                  contentId: String(item.id),
                   contentGenres: item.genre || []
                 })
               });
@@ -1668,14 +1637,9 @@ function renderRecommended(list) {
         grid.style.justifyContent = "flex-start";
   
         groupedCatalog[genre].forEach(item => {
-          // Use the liked status from likedContentIds (loaded from database)
-          // item.liked is already set in renderCatalog() based on likedContentIds
-          // Only use storedLikes for likes count if needed, but not for liked status
           if (storedLikes[item.id] !== undefined && storedLikes[item.id].likes !== undefined) {
             item.likes = storedLikes[item.id].likes;
           }
-          // Ensure liked status is based on database (likedContentIds)
-          // item.liked should already be set correctly in renderCatalog()
           const itemIdStr = String(item.id);
           item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
 
@@ -1704,7 +1668,6 @@ function renderRecommended(list) {
             const wasLiked = item.liked;
             item.liked = !item.liked;
             
-            // Update UI immediately for better UX
             if(item.liked){
               item.likes++;
               btn.classList.add("liked");
@@ -1733,7 +1696,7 @@ function renderRecommended(list) {
                   body: JSON.stringify({
                     userId: userId,
                     profileName: profileName,
-                    contentId: String(item.id), // Ensure contentId is a string
+                    contentId: String(item.id),
                     contentGenres: item.genre || []
                   })
                 });
@@ -1806,8 +1769,7 @@ function renderRecommended(list) {
     }
     
     function renderFlatCatalog(list) {
-  catalogDiv.innerHTML = ""; // clear everything
-
+  catalogDiv.innerHTML = "";
   const title = document.createElement("h2");
   title.textContent = `תוצאות(${list.length})`;
   title.style.textAlign = "center";
@@ -1826,12 +1788,9 @@ function renderRecommended(list) {
   grid.style.justifyContent = "flex-start";
 
   list.forEach(item => {
-    // Use the liked status from likedContentIds (loaded from database)
-    // Only use storedLikes for likes count if needed, but not for liked status
     if (storedLikes[item.id] !== undefined && storedLikes[item.id].likes !== undefined) {
       item.likes = storedLikes[item.id].likes;
     }
-    // Ensure liked status is based on database (likedContentIds)
     const itemIdStr = String(item.id);
     item.liked = likedContentIds.some(likedId => String(likedId) === itemIdStr);
 
@@ -1860,7 +1819,6 @@ function renderRecommended(list) {
       const wasLiked = item.liked;
       item.liked = !item.liked;
       
-      // Update UI immediately for better UX
       if(item.liked){
         item.likes++;
         btn.classList.add("liked");
@@ -1889,7 +1847,7 @@ function renderRecommended(list) {
             body: JSON.stringify({
               userId: userId,
               profileName: profileName,
-              contentId: String(item.id), // Ensure contentId is a string
+              contentId: String(item.id),
               contentGenres: item.genre || []
             })
           });
@@ -1971,7 +1929,6 @@ function renderRecommended(list) {
         setTimeout(() => container.removeChild(particle), 600);
       }
     }
-
 
     
     // Search filter
