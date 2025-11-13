@@ -427,6 +427,7 @@
     const API_BASE_URL = BACKEND_URL + '/api/users';
     const userId = activeProfile?.userId || localStorage.getItem("userId");
     const profileName = activeProfile?.name;
+    const activeProfileId = activeProfile?.originalProfile?._id;
     let likedContentIds = []; // Array of content IDs that are liked by this profile
     let favoriteContentIds = []; // Array of content IDs that are favorited by this profile
     
@@ -497,68 +498,69 @@
     async function loadWatchHistory() {
       if (!userId) {
         watchHistoryMap = {};
-        return {};
+        return { historyMap: {}, episodeProgressData: {} };
       }
       try {
-        const response = await fetch(`${WATCH_HISTORY_BASE}/user/${userId}`, {
+        const params = new URLSearchParams();
+        if (activeProfileId) {
+          params.append("profileId", activeProfileId);
+        }
+        const url = `${WATCH_HISTORY_BASE}/bulk-progress/${userId}${params.toString() ? `?${params.toString()}` : ""}`;
+        const response = await fetch(url, {
           method: 'GET',
           credentials: 'include'
         });
         if (!response.ok) {
           throw new Error('Failed to load watch history');
         }
-        const histories = await response.json();
-        const map = {};
-        histories.forEach(entry => {
-          const contentId = entry.content?._id || entry.content;
-          if (contentId) {
-            map[String(contentId)] = {
+        const payload = await response.json();
+        const data = activeProfileId ? (payload.data || {}) : (payload.profiles || {});
+
+        const historyMap = {};
+        const episodeProgressData = {};
+
+        if (activeProfileId) {
+          Object.entries(data).forEach(([contentId, entry]) => {
+            historyMap[contentId] = {
               progress: entry.progress || 0,
               lastWatchedAt: entry.lastWatchedAt || null
             };
-          }
-        });
-        watchHistoryMap = map;
-        return map;
+            episodeProgressData[contentId] = {
+              currentEpisode: entry.currentEpisode || null,
+              episodeProgress: entry.episodeProgress || []
+            };
+          });
+        } else {
+          Object.values(data).forEach(profileMap => {
+            Object.entries(profileMap).forEach(([contentId, entry]) => {
+              historyMap[contentId] = {
+                progress: entry.progress || 0,
+                lastWatchedAt: entry.lastWatchedAt || null
+              };
+              episodeProgressData[contentId] = {
+                currentEpisode: entry.currentEpisode || null,
+                episodeProgress: entry.episodeProgress || []
+              };
+            });
+          });
+        }
+
+        watchHistoryMap = historyMap;
+        return { historyMap, episodeProgressData };
       } catch (error) {
         console.error('Error loading watch history:', error);
         watchHistoryMap = {};
-        return {};
+        return { historyMap: {}, episodeProgressData: {} };
       }
     }
 
     async function initCatalog() {
       try {
-
-
-        const [contentResponse, historyMap] = await Promise.all([
+        const [contentResponse, historyData] = await Promise.all([
           fetch(BACKEND_URL+ "/api/content").then(res => res.json()),
           loadWatchHistory()
         ]);
-
-
-        // Load episode progress for all series
-        const seriesIds = contentResponse.filter(c => c.type === 'series').map(c => c._id);
-        const episodeProgressData = {};
-        
-        if (userId) {
-          await Promise.all(
-            seriesIds.map(async (seriesId) => {
-              try {
-                const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesId}`, {
-                  method: 'GET',
-                  credentials: 'include'
-                });
-                if (response.ok) {
-                  const data = await response.json();
-                  episodeProgressData[seriesId] = data;
-                }
-              } catch (error) {
-                console.error(`Error loading progress for series ${seriesId}:`, error);
-              }
-            })
-          );
-        }
+        const { historyMap, episodeProgressData } = historyData;
 
         const popularityResponse = await fetch(WATCH_HISTORY_BASE + "/popularity");
         const popularityData = await popularityResponse.json();
@@ -577,8 +579,8 @@
           let currentEpisodeInfo = null;
           
           // For series, check episode progress
-          if (content.type === 'series' && episodeProgressData[content._id]) {
-            const seriesProgress = episodeProgressData[content._id];
+          if (content.type === 'series' && episodeProgressData[contentId]) {
+            const seriesProgress = episodeProgressData[contentId];
             if (seriesProgress.currentEpisode) {
               currentEpisodeInfo = seriesProgress.currentEpisode;
               // Find the progress for current episode
