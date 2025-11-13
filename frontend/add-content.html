@@ -157,6 +157,23 @@
       font-size: 14px;
       color: #27ae60;
     }
+    .duration-display {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #b3b3b3;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .duration-display.loading {
+      color: #ffb300;
+    }
+    .duration-display.success {
+      color: #27ae60;
+    }
+    .duration-display.error {
+      color: #ff6b6b;
+    }
     .loading-spinner {
       display: none;
       margin-right: 10px;
@@ -166,6 +183,15 @@
       width: 16px;
       height: 16px;
       border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    .duration-spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #ffb300;
       border-top-color: transparent;
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
@@ -252,7 +278,7 @@
       padding: 15px;
       margin-bottom: 10px;
       display: grid;
-      grid-template-columns: 50px 1fr 100px 1fr 60px;
+      grid-template-columns: 50px 1fr 1fr 60px;
       gap: 15px;
       align-items: center;
     }
@@ -286,6 +312,11 @@
     }
     .episode-input.error {
       border-color: #ff6b6b;
+    }
+    .episode-file-column {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
     .btn-add-episode {
       margin-top: 10px;
@@ -371,6 +402,7 @@
           <input type="file" id="videoFile" accept="video/mp4,video/mov">
           <span class="error-message" id="videoError">יש להעלות קובץ וידאו</span>
           <span class="upload-preview" id="videoPreview"></span>
+          <div class="duration-display" id="videoDuration"></div>
         </div>
 
         <div class="form-group full-width">
@@ -432,6 +464,39 @@
     let genres = [];
     let cast = [];
     let seasons = [];
+    let movieDuration = 0;
+
+    // Helper function to extract video duration
+    function getVideoDuration(file) {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        
+        video.onloadedmetadata = function() {
+          window.URL.revokeObjectURL(video.src);
+          const duration = video.duration;
+          if (isNaN(duration) || duration === 0) {
+            reject(new Error('Invalid duration'));
+          } else {
+            resolve(duration);
+          }
+        };
+        
+        video.onerror = function() {
+          window.URL.revokeObjectURL(video.src);
+          reject(new Error('Error loading video'));
+        };
+        
+        video.src = URL.createObjectURL(file);
+      });
+    }
+
+    function formatDuration(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
 
     document.getElementById('posterFile').addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -441,12 +506,39 @@
       }
     });
 
-    document.getElementById('videoFile').addEventListener('change', (e) => {
+    document.getElementById('videoFile').addEventListener('change', async (e) => {
       const file = e.target.files[0];
+      const durationDisplay = document.getElementById('videoDuration');
+      const videoPreview = document.getElementById('videoPreview');
+      
       if (file) {
         const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        document.getElementById('videoPreview').textContent = `✓ ${file.name} (${sizeMB} MB)`;
+        videoPreview.textContent = `✓ ${file.name} (${sizeMB} MB)`;
         document.getElementById('videoError').style.display = 'none';
+        
+        // Show loading state
+        durationDisplay.className = 'duration-display loading';
+        durationDisplay.innerHTML = '<span class="duration-spinner"></span> מחשב משך...';
+        
+        try {
+          const duration = await getVideoDuration(file);
+          movieDuration = Math.floor(duration);
+          
+          // Show success state
+          durationDisplay.className = 'duration-display success';
+          durationDisplay.textContent = `משך: ${formatDuration(duration)}`;
+        } catch (error) {
+          console.error('Error getting video duration:', error);
+          movieDuration = 0;
+          
+          // Show error state
+          durationDisplay.className = 'duration-display error';
+          durationDisplay.textContent = '⚠ שגיאה בקריאת משך הסרטון';
+        }
+      } else {
+        durationDisplay.textContent = '';
+        videoPreview.textContent = '';
+        movieDuration = 0;
       }
     });
 
@@ -468,13 +560,9 @@
       seasons.forEach((season, seasonIndex) => {
         season.episodes.forEach((episode, episodeIndex) => {
           const titleInput = document.getElementById(`episodeTitle_${seasonIndex}_${episodeIndex}`);
-          const durationInput = document.querySelector(`#episode_${seasonIndex}_${episodeIndex} input[type="number"]`);
           
           if (titleInput) {
             episode.title = titleInput.value;
-          }
-          if (durationInput) {
-            episode.duration = parseInt(durationInput.value) || 45;
           }
         });
       });
@@ -506,7 +594,7 @@
       season.episodes.push({
         episodeNumber: episodeNumber,
         title: '',
-        duration: 45,
+        duration: 0,
         videoFile: null
       });
       renderSeasons();
@@ -529,16 +617,43 @@
       }
     }
 
-    function updateEpisodeFile(seasonIndex, episodeIndex, file) {
+    async function updateEpisodeFile(seasonIndex, episodeIndex, file) {
       seasons[seasonIndex].episodes[episodeIndex].videoFile = file;
       const statusSpan = document.getElementById(`episodeFileStatus_${seasonIndex}_${episodeIndex}`);
       const fileInput = document.getElementById(`episodeFile_${seasonIndex}_${episodeIndex}`);
+      const durationSpan = document.getElementById(`episodeDuration_${seasonIndex}_${episodeIndex}`);
       
-      if (statusSpan && file) {
-        statusSpan.textContent = '✓ ' + file.name;
-        statusSpan.style.color = '#27ae60';
+      if (file) {
+        // Show file selected status
+        if (statusSpan) {
+          statusSpan.textContent = '✓ ' + file.name;
+          statusSpan.style.color = '#27ae60';
+        }
         if (fileInput) {
           fileInput.classList.remove('error');
+        }
+        
+        // Extract duration from video file
+        if (durationSpan) {
+          durationSpan.innerHTML = '<span class="duration-spinner"></span> מחשב משך...';
+          durationSpan.style.color = '#ffb300';
+        }
+        
+        try {
+          const duration = await getVideoDuration(file);
+          seasons[seasonIndex].episodes[episodeIndex].duration = Math.floor(duration);
+          
+          if (durationSpan) {
+            durationSpan.textContent = formatDuration(duration);
+            durationSpan.style.color = '#27ae60';
+          }
+        } catch (error) {
+          console.error('Error getting video duration:', error);
+          if (durationSpan) {
+            durationSpan.textContent = '⚠ שגיאה בקריאת משך';
+            durationSpan.style.color = '#ff6b6b';
+          }
+          seasons[seasonIndex].episodes[episodeIndex].duration = 0;
         }
       }
     }
@@ -605,13 +720,7 @@
                          value="${episode.title}"
                          onchange="updateEpisode(${seasonIndex}, ${episodeIndex}, 'title', this.value)">
                 </div>
-                <input type="number" 
-                       class="episode-input" 
-                       placeholder="משך (דקות)"
-                       value="${episode.duration}"
-                       min="1"
-                       onchange="updateEpisode(${seasonIndex}, ${episodeIndex}, 'duration', parseInt(this.value))">
-                <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div class="episode-file-column">
                   <input type="file" 
                          class="episode-file-input" 
                          accept="video/mp4,video/mov"
@@ -619,6 +728,9 @@
                          onchange="updateEpisodeFile(${seasonIndex}, ${episodeIndex}, this.files[0])">
                   <span style="font-size: 11px; color: #27ae60;" id="episodeFileStatus_${seasonIndex}_${episodeIndex}">
                     ${episode.videoFile ? '✓ ' + episode.videoFile.name : ''}
+                  </span>
+                  <span style="font-size: 11px; color: #b3b3b3;" id="episodeDuration_${seasonIndex}_${episodeIndex}">
+                    ${episode.duration ? formatDuration(episode.duration) : 'ממתין לקובץ...'}
                   </span>
                 </div>
                 <button type="button" class="btn-remove" onclick="removeEpisode(${seasonIndex}, ${episodeIndex})">
@@ -836,6 +948,10 @@
           likes: 0
         };
         
+        if (type === 'movie') {
+          contentData.duration = movieDuration;
+        }
+        
         if (type === 'series') {
           contentData.seasons = seasons;
         }
@@ -856,12 +972,14 @@
           genres = [];
           cast = [];
           seasons = [];
+          movieDuration = 0;
           renderGenres();
           renderCast();
           renderSeasons();
           handleTypeChange();
           document.getElementById('posterPreview').textContent = '';
           document.getElementById('videoPreview').textContent = '';
+          document.getElementById('videoDuration').textContent = '';
           
           setTimeout(() => {
             document.getElementById('successMessage').style.display = 'none';
