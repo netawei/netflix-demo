@@ -17,6 +17,8 @@ const userSchema = new mongoose.Schema({
     profiles: [{
         name: String,
         avatar: String,
+        likedContent: [String],
+        favorites: [String],
         preferences: {
           favoriteGenres: [String]
         }

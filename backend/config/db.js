@@ -1,36 +1,28 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const { logInfo, logError } = require("../utils/logger");
 
 dotenv.config();
 
 const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log("MongoDB connected");
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  }
+	try {
+		const { MONGO_USER, MONGO_PASS, MONGO_HOST, MONGO_PORT, MONGO_DB } =
+			process.env;
+		const MONGO_URI = `mongodb://${MONGO_USER}:${encodeURIComponent(
+			MONGO_PASS
+		)}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}?authSource=admin`;
+
+		await mongoose.connect(MONGO_URI, {
+			useNewUrlParser: true,
+			useUnifiedTopology: true,
+		});
+		console.log("MongoDB connected");
+		await logInfo("MongoDB connected", { host: MONGO_HOST }, "infrastructure:mongodb");
+	} catch (error) {
+		console.error("MongoDB connection failed");
+		await logError("MongoDB connection failed", error, {}, "infrastructure:mongodb");
+		process.exit(1);
+	}
 };
 
-const dropDB = async () => {
-  await connectDB();
-  const collections = await mongoose.connection.db.collections();
-
-  for (let collection of collections) {
-    try {
-      await collection.drop();
-      console.log(`Dropped collection: ${collection.collectionName}`);
-    } catch (error) {
-      console.error(
-        `Error dropping collection: ${collection.collectionName}`,
-        error
-      );
-    }
-  }
-};
-
-module.exports = { connectDB, dropDB };
+module.exports = { connectDB };

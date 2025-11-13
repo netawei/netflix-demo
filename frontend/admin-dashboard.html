@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ניהול - Netflix Demo</title>
+  <style>
+    :root {
+      --bg: #000;
+      --card: rgba(0, 0, 0, 0.85);
+      --border: rgba(255, 255, 255, 0.15);
+      --primary: #e50914;
+      --text: #f8f8f8;
+      --muted: #b3b3b3;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top, #1f1f1f 0%, #000 60%);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 16px;
+      gap: 32px;
+    }
+    .card {
+      width: min(520px, 100%);
+      padding: 36px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      text-align: center;
+    }
+    p {
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    button {
+      padding: 16px;
+      border-radius: 12px;
+      border: none;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: #fff;
+      box-shadow: 0 15px 35px rgba(229, 9, 20, 0.35);
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.35);
+      color: #fff;
+    }
+    .btn-light {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      opacity: 0.92;
+    }
+    footer {
+      text-align: center;
+      padding: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    @media (max-width: 600px) {
+      .card {
+        padding: 28px 22px;
+      }
+      h1 {
+        font-size: 26px;
+      }
+      button {
+        font-size: 16px;
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Netflix</div>
+  </header>
+
+  <main>
+    <div class="card">
+      <div>
+        <h1>מרכז ניהול המערכת</h1>
+        <p id="adminGreeting">ברוך הבא מנהל. בחר פעולה להמשך.</p>
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" id="addContentBtn">הוספת תוכן חדש</button>
+        <button class="btn-light" id="logoutBtn">התנתק</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Netflix Demo Admin Panel
+  </footer>
+
+  <script>
+    (function () {
+      const isAdmin = localStorage.getItem("isAdmin") === "true";
+      const userName = localStorage.getItem("userName") || "מנהל";
+      const backendUrl = localStorage.getItem("BackendURL") || "http://127.0.0.1:5001";
+
+      if (!isAdmin) {
+        window.location.href = "profiles.html";
+        return;
+      }
+
+      document.getElementById("adminGreeting").textContent = `שלום ${userName}, בחר את הפעולה המתאימה:`;
+
+      document.getElementById("addContentBtn").addEventListener("click", () => {
+        window.location.href = "add-content.html";
+      });
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        fetch(backendUrl + "/api/users/logout", {
+          method: "GET",
+          credentials: "include"
+        }).finally(() => {
+          localStorage.clear();
+          window.location.href = "index.html";
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
+

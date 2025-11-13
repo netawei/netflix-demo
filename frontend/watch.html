@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch - Netflix Demo</title>
+  <style>
+    :root {
+      --bg: #000;
+      --card: rgba(0, 0, 0, 0.85);
+      --border: rgba(255, 255, 255, 0.1);
+      --primary: #e50914;
+      --text: #f8f8f8;
+      --muted: #b3b3b3;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top, #1f1f1f, #000);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      background: rgba(0, 0, 0, 0.7);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(6px);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    .header-actions button {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 999px;
+      color: var(--text);
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .header-actions button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-1px);
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+      padding: 24px;
+    }
+    .player-container {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .content-header {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .content-header h1 {
+      margin: 0;
+      font-size: 26px;
+      padding-right: 0;
+    }
+    .metadata {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .metadata span {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+    .description {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    
+    video {
+      width: 100%;
+      max-height: 60vh;
+      background: #000;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .status-bar strong {
+      color: var(--text);
+    }
+    .status-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .status-actions button {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .status-actions .btn-primary {
+      background: linear-gradient(135deg, #e50914, #b00610);
+      color: var(--text);
+    }
+    .status-actions .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: var(--text);
+    }
+    .play-pause-btn {
+      background: linear-gradient(135deg, #e50914, #b00610) !important;
+    }
+
+    .play-pause-btn:hover {
+      background: linear-gradient(135deg, #f6121d, #c50e15) !important;
+    }
+    .error-banner {
+      background: rgba(229, 9, 20, 0.15);
+      border: 1px solid rgba(229, 9, 20, 0.4);
+      color: #ff747d;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    @media (max-width: 768px) {
+      main {
+        padding: 16px;
+      }
+      .player-container {
+        padding: 16px;
+      }
+      .content-header h1 {
+        font-size: 22px;
+      }
+    }
+    .repeat-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      z-index: 100;
+      animation: fadeInScale 0.4s ease-out;
+    }
+
+    .repeat-overlay.show {
+      display: block;
+    }
+
+    .repeat-button {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(229, 9, 20, 0.9);
+      border: 3px solid rgba(255, 255, 255, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: transform 0.3s, background 0.3s;
+      box-shadow: 0 4px 20px rgba(229, 9, 20, 0.6);
+    }
+
+    .repeat-button:hover {
+      transform: scale(1.1);
+      background: rgba(229, 9, 20, 1);
+      box-shadow: 0 6px 30px rgba(229, 9, 20, 0.8);
+    }
+
+    .repeat-icon {
+      font-size: 36px;
+      color: white;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    .loading-content {
+      text-align: center;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    .loading-text {
+      font-size: 18px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeInScale {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+    
+    .episodes-dropdown-btn {
+      background: linear-gradient(135deg, rgba(229, 9, 20, 0.2), rgba(176, 6, 16, 0.2));
+      border: 1px solid rgba(229, 9, 20, 0.5);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .episodes-dropdown-btn:hover {
+      background: linear-gradient(135deg, rgba(229, 9, 20, 0.4), rgba(176, 6, 16, 0.4));
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
+    }
+
+    .episodes-dropdown-menu {
+      background: rgba(20, 20, 20, 0.98);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      position: absolute;
+      left: 0;
+      top: calc(100% + 4px);
+      width: 300px;
+      z-index: 1000;
+    }
+
+    .season-group {
+      margin-bottom: 16px;
+    }
+
+    .season-header {
+      font-weight: bold;
+      color: var(--primary);
+      padding: 10px 12px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s;
+      border-left: 3px solid var(--primary);
+      background: rgba(229, 9, 20, 0.1);
+    }
+
+    .season-header:hover {
+      background: rgba(229, 9, 20, 0.2);
+    }
+
+    .episodes-list-dropdown {
+      padding-left: 12px;
+      margin-top: 8px;
+    }
+
+    .episode-item-dropdown {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+      border-left: 2px solid transparent;
+    }
+
+    .episode-item-dropdown:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-left-color: var(--primary);
+      transform: translateX(4px);
+    }
+
+    .episode-item-dropdown.current {
+      background: rgba(229, 9, 20, 0.2);
+      border-left-color: var(--primary);
+      font-weight: 600;
+    }
+
+    .episode-progress-container {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .episode-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #e50914, #f40612);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px rgba(229, 9, 20, 0.6);
+    }
+
+    .episode-info-text {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .episode-duration {
+      font-size: 10px;
+      color: #888;
+      margin-left: 8px;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      padding: 0;
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .icon-btn .icon-number {
+      position: absolute;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    
+    #rewind10Btn, #forward10Btn {
+      font-size: 22px;
+      position: relative;
+      font-weight: normal;
+    }
+
+    #rewind10Btn .icon-wrapper,
+    #forward10Btn .icon-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #rewind10Btn .icon-number,
+    #forward10Btn .icon-number {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    
+  </style>
+</head>
+<body>
+  
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading...</div>
+    </div>
+  </div>
+
+  <header>
+    <div class="logo">Netflix</div>
+    <div class="header-actions">
+      <button id="backBtn">חזרה לקטלוג</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="player-container">
+      <div class="content-header">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <h1 id="contentTitle">...</h1>
+          <div style="position: relative;">
+            <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
+              Episodes ▼
+            </button>
+
+            <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="metadata" id="contentMeta"></div>
+      </div>
+      
+      <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
+      <p class="description" id="contentDescription"></p>
+      <div id="errorBanner" class="error-banner" style="display:none;"></div>
+      <div class="video-wrapper">
+        <video id="videoPlayer" controls preload="metadata">
+          Your browser does not support the video tag.
+        </video>
+        <div id="repeatOverlay" class="repeat-overlay">
+          <div class="repeat-button" id="repeatBtn">
+            <span class="repeat-icon">↻</span>
+          </div>
+        </div>
+      </div>
+      <div class="status-bar">
+        <div>
+          <strong>Status:</strong> <span id="statusText">Preparing video...</span>
+        </div>
+        <div class="status-actions">
+          <button class="btn-secondary icon-btn" id="forward10Btn" title="Forward 10s">
+            <span class="icon-wrapper">⟳<span class="icon-number">10</span></span>
+          </button>
+          <button class="btn-secondary icon-btn" id="rewind10Btn" title="Rewind 10s">
+            <span class="icon-wrapper">⟲<span class="icon-number">10</span></span>
+          </button>
+          <button class="btn-secondary icon-btn" id="restartBtn" title="Restart">⟲</button>
+          <button class="btn-primary icon-btn play-pause-btn" id="resumeBtn" title="Play">▶</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const contentId = params.get('contentId');
+    const seasonNumber = params.get('seasonNumber');
+    const episodeNumber = params.get('episodeNumber');
+    const restartParam = params.get('restart') === '1';
+    const isEpisode = seasonNumber && episodeNumber;
+    const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
+    const userId = activeProfile?.userId || localStorage.getItem("userId");
+    const profileId = activeProfile?.originalProfile?._id;
+    const BACKEND_URL = localStorage.getItem("BackendURL");
+    const statusText = document.getElementById('statusText');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const rewindBtn = document.getElementById('rewind10Btn');
+    const forwardBtn = document.getElementById('forward10Btn');
+    const restartBtn = document.getElementById('restartBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const backBtn = document.getElementById('backBtn');
+    const errorBanner = document.getElementById('errorBanner');
+    const WATCH_HISTORY_BASE = BACKEND_URL + '/api/watchHistory';
+
+    if (!contentId) {
+      alert('No content found to watch');
+      window.location.href = 'main-page.html';
+    }
+
+    if (!userId || !profileId) {
+      alert('Please login and select a profile first');
+      window.location.href = 'index.html';
+    }
+
+    let currentProgress = 0;
+    let progressInterval = null;
+    let contentDuration = 0;
+    let allEpisodeProgress = {};
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'main-page.html';
+    });
+
+    rewindBtn.addEventListener('click', () => {
+      seekRelative(-10);
+    });
+
+    forwardBtn.addEventListener('click', () => {
+      seekRelative(10);
+    });
+
+    restartBtn.addEventListener('click', () => {
+      showLoadingOverlay('Restarting...');
+      if (!videoPlayer.duration || Number.isNaN(videoPlayer.duration)) {
+        videoPlayer.currentTime = 0;
+      } else {
+        videoPlayer.currentTime = 0;
+      }
+      statusText.textContent = 'Restarted from beginning';
+      sendProgressUpdate(0);
+      videoPlayer.play();
+      setTimeout(() => hideLoadingOverlay(), 500);
+    });
+
+    resumeBtn.addEventListener('click', () => {
+      if (videoPlayer.paused) {
+        videoPlayer.play();
+      } else {
+        videoPlayer.pause();
+      }
+    });
+
+    async function loadContentDetails() {
+      try {
+        const response = await fetch(BACKEND_URL+`/api/content/${contentId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load content details');
+        }
+        const content = await response.json();
+        
+        if (isEpisode) {
+          // Handle series episode
+          const season = content.seasons.find(s => s.seasonNumber == seasonNumber);
+          if (!season) throw new Error('Season not found');
+          
+          const episode = season.episodes.find(e => e.episodeNumber == episodeNumber);
+          if (!episode) throw new Error('Episode not found');
+          
+          document.getElementById('contentTitle').textContent = 
+            `${content.title} - Season ${seasonNumber} Episode ${episodeNumber}`;
+          
+          if (episode.title) {
+            document.getElementById('contentTitle').textContent += `: ${episode.title}`;
+          }
+          
+          renderMetadata(content);
+          document.getElementById('contentDescription').textContent = 
+            episode.description || content.description || 'No description available for this episode.';
+          
+          if (!episode.videoUrl) {
+            throw new Error('No video file found for this episode');
+          }
+          videoPlayer.src = episode.videoUrl;
+          contentDuration = episode.duration || 0;
+          
+          addEpisodeNavigation(content, season, episode);
+        } else {
+          document.getElementById('contentTitle').textContent = content.title || 'Untitled';
+          renderMetadata(content);
+          document.getElementById('contentDescription').textContent = 
+            content.description || 'No description available for this content.';
+          
+          if (!content.videoUrl) {
+            throw new Error('No video file found for this content');
+          }
+          videoPlayer.src = content.videoUrl;
+        }
+      } catch (error) {
+        console.error('Content load error:', error);
+        showError(error.message || 'An error occurred while loading the content');
+      }
+    }
+
+    function addEpisodeNavigation(content, season, currentEpisode) {
+      const statusActions = document.querySelector('.status-actions');
+      
+      const currentIndex = season.episodes.findIndex(e => e.episodeNumber == episodeNumber);
+      const hasPrevious = currentIndex > 0;
+      const hasNext = currentIndex < season.episodes.length - 1;
+      
+      const dropdownBtn = document.getElementById('episodesDropdownBtn');
+      const dropdownMenu = document.getElementById('episodesDropdown');
+      
+      dropdownBtn.style.display = 'inline-block';
+      
+      buildEpisodesDropdown(content, dropdownMenu);
+      
+      dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = dropdownMenu.style.display === 'block';
+        dropdownMenu.style.display = isVisible ? 'none' : 'block';
+      });
+      
+      document.addEventListener('click', (e) => {
+        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+          dropdownMenu.style.display = 'none';
+        }
+      });
+      
+      if (hasPrevious) {
+        const prevBtn = document.createElement('button');
+        prevBtn.classList.add('btn-secondary', 'icon-btn');
+        prevBtn.innerHTML = '⏮';
+        prevBtn.title = 'Previous Episode';
+        prevBtn.addEventListener('click', () => {
+          const prevEpisode = season.episodes[currentIndex - 1];
+          navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
+        });
+        const playPauseBtn = document.getElementById('resumeBtn');
+        statusActions.insertBefore(prevBtn, playPauseBtn);
+      }
+
+      if (hasNext) {
+        const nextBtn = document.createElement('button');
+        nextBtn.classList.add('btn-primary', 'icon-btn');
+        nextBtn.innerHTML = '⏭';
+        nextBtn.title = 'Next Episode';
+        nextBtn.id = 'nextEpisodeBtn';
+        nextBtn.style.display = 'none';
+        nextBtn.addEventListener('click', () => {
+          const nextEpisode = season.episodes[currentIndex + 1];
+          navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
+        });
+        const forwardBtn = document.getElementById('forward10Btn');
+        statusActions.insertBefore(nextBtn, forwardBtn);
+      }
+    }
+
+    async function buildEpisodesDropdown(content, dropdownMenu) {
+      dropdownMenu.innerHTML = '';
+      
+      content.seasons.forEach(season => {
+        const seasonGroup = document.createElement('div');
+        seasonGroup.classList.add('season-group');
+        
+        const seasonHeader = document.createElement('div');
+        seasonHeader.classList.add('season-header');
+        seasonHeader.textContent = `Season ${season.seasonNumber} (${season.episodes.length} episodes)`;
+        
+        const episodesList = document.createElement('div');
+        episodesList.classList.add('episodes-list-dropdown');
+        episodesList.style.display = season.seasonNumber == seasonNumber ? 'block' : 'none';
+        
+        seasonHeader.addEventListener('click', () => {
+          const isVisible = episodesList.style.display === 'block';
+          episodesList.style.display = isVisible ? 'none' : 'block';
+        });
+        
+        season.episodes.forEach(ep => {
+          const episodeItem = document.createElement('div');
+          episodeItem.classList.add('episode-item-dropdown');
+          
+          if (season.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber) {
+            episodeItem.classList.add('current');
+          }
+          
+          const episodeProgress = allEpisodeProgress[contentId]?.episodeProgress?.find(
+            progress => progress.seasonNumber === season.seasonNumber && 
+                       progress.episodeNumber === ep.episodeNumber
+          );
+          
+          const progress = episodeProgress?.progress || 0;
+          const duration = ep.duration || 0;
+          const progressPercentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
+          
+          const episodeInfoDiv = document.createElement('div');
+          episodeInfoDiv.classList.add('episode-info-text');
+          
+          const episodeTitle = document.createElement('span');
+          episodeTitle.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
+          
+          const episodeDuration = document.createElement('span');
+          episodeDuration.classList.add('episode-duration');
+          if (duration > 0) {
+            episodeDuration.textContent = formatPlaybackTime(duration);
+          }
+          
+          episodeInfoDiv.appendChild(episodeTitle);
+          episodeInfoDiv.appendChild(episodeDuration);
+          episodeItem.appendChild(episodeInfoDiv);
+          
+          if (progressPercentage > 0) {
+            const progressContainer = document.createElement('div');
+            progressContainer.classList.add('episode-progress-container');
+            
+            const progressBar = document.createElement('div');
+            progressBar.classList.add('episode-progress-bar');
+            progressBar.style.width = `${progressPercentage}%`;
+            
+            progressContainer.appendChild(progressBar);
+            episodeItem.appendChild(progressContainer);
+          }
+          
+          episodeItem.addEventListener('click', () => {
+            navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
+          });
+          
+          episodesList.appendChild(episodeItem);
+        });
+        
+        seasonGroup.appendChild(seasonHeader);
+        seasonGroup.appendChild(episodesList);
+        dropdownMenu.appendChild(seasonGroup);
+      });
+    }
+
+    function navigateToEpisode(contentId, seasonNum, episodeNum) {
+      showLoadingOverlay('Loading next episode...');
+      const params = new URLSearchParams({
+        contentId: contentId,
+        seasonNumber: seasonNum,
+        episodeNumber: episodeNum,
+        restart: '0'
+      });
+      window.location.href = `watch.html?${params.toString()}`;
+    }
+
+    function renderMetadata(content) {
+      const meta = [];
+      if (content.releaseYear) meta.push(`<span>${content.releaseYear}</span>`);
+      if (content.genre && content.genre.length) {
+        meta.push(...content.genre.slice(0, 4).map(g => `<span>${g}</span>`));
+      }
+      if (content.director) meta.push(`<span>Director: ${content.director}</span>`);
+      if (content.rating && content.rating !== -1) meta.push(`<span>IMDB ${parseFloat(content.rating).toFixed(1)}</span>`);
+      document.getElementById('contentMeta').innerHTML = meta.join('');
+    }
+
+    function showError(message) {
+      errorBanner.textContent = message;
+      errorBanner.style.display = 'block';
+      statusText.textContent = 'Error loading content';
+      videoPlayer.style.display = 'none';
+      restartBtn.disabled = true;
+      resumeBtn.disabled = true;
+    }
+
+    async function loadWatchProgress() {
+      try {
+        const params = new URLSearchParams();
+        params.append("profileId", profileId);
+        
+        const url = `${WATCH_HISTORY_BASE}/bulk-progress/${userId}?${params.toString()}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Could not load watch history');
+        }
+        
+        const payload = await response.json();
+        const data = payload.data || {};
+        
+        allEpisodeProgress = {};
+        Object.entries(data).forEach(([cId, entry]) => {
+          allEpisodeProgress[cId] = {
+            progress: entry.progress || 0,
+            currentEpisode: entry.currentEpisode || null,
+            episodeProgress: entry.episodeProgress || [],
+            lastWatchedAt: entry.lastWatchedAt || null
+          };
+        });
+        
+        if (isEpisode) {
+          const contentData = allEpisodeProgress[contentId];
+          if (contentData) {
+            const episodeProgress = contentData.episodeProgress.find(
+              ep => ep.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber
+            );
+            currentProgress = episodeProgress?.progress || 0;
+          } else {
+            currentProgress = 0;
+          }
+        } else {
+          const contentData = allEpisodeProgress[contentId];
+          currentProgress = contentData?.progress || 0;
+        }
+        
+        updateResumeButtonState();
+      } catch (error) {
+        console.error('Watch history load error:', error);
+        currentProgress = 0;
+        allEpisodeProgress = {};
+        updateResumeButtonState();
+      }
+    }
+
+    async function initPlayer() {
+      await loadWatchProgress();
+      await loadContentDetails();
+
+      videoPlayer.addEventListener('loadedmetadata', () => {
+        contentDuration = videoPlayer.duration;
+        if (!restartParam && currentProgress > 0 && currentProgress < contentDuration) {
+          videoPlayer.currentTime = currentProgress;
+          statusText.textContent = `Saved progress: ${formatPlaybackTime(currentProgress)}`;
+        } else {
+          if (restartParam) {
+            currentProgress = 0;
+            updateResumeButtonState();
+          }
+          statusText.textContent = 'Ready to start watching';
+        }
+      });
+
+      videoPlayer.addEventListener('play', () => {
+        statusText.textContent = 'Playing';
+        startProgressInterval();
+        resumeBtn.innerHTML = '❚❚';
+        resumeBtn.title = 'Pause';
+      });
+
+      videoPlayer.addEventListener('pause', () => {
+        statusText.textContent = 'Paused';
+        sendProgressUpdate();
+        clearProgressInterval();
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'Play';
+      });
+
+      videoPlayer.addEventListener('ended', () => {
+        statusText.textContent = 'Video ended';
+        sendProgressUpdate(videoPlayer.duration);
+        clearProgressInterval();
+        showRepeatButton();
+      });
+
+      videoPlayer.addEventListener('timeupdate', () => {
+        if (videoPlayer.currentTime && videoPlayer.duration) {
+          const current = formatPlaybackTime(videoPlayer.currentTime);
+          const total = formatPlaybackTime(videoPlayer.duration);
+          statusText.textContent = `Playing: ${current} / ${total}`;
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        sendProgressUpdate();
+        clearProgressInterval();
+      });
+    }
+
+    function startProgressInterval() {
+      clearProgressInterval();
+      progressInterval = setInterval(() => {
+        sendProgressUpdate();
+      }, 10000);
+    }
+
+    function clearProgressInterval() {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+    }
+
+    async function sendProgressUpdate(forcedValue) {
+      if (!userId || !contentId || !profileId) {
+        console.error('Missing required data for progress update');
+        return;
+      }
+      
+      const progressValue = typeof forcedValue === 'number'
+        ? forcedValue
+        : Math.floor(videoPlayer.currentTime || 0);
+
+      currentProgress = progressValue;
+      updateResumeButtonState();
+
+      try {
+        if (isEpisode) {
+          const completed = progressValue >= (contentDuration * 0.9);
+          const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              user: userId,
+              profile: profileId,  
+              content: contentId,
+              seasonNumber: parseInt(seasonNumber),
+              episodeNumber: parseInt(episodeNumber),
+              progress: progressValue,
+              completed: completed
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update episode progress');
+          }
+          
+          if (!allEpisodeProgress[contentId]) {
+            allEpisodeProgress[contentId] = { episodeProgress: [] };
+          }
+          const epIndex = allEpisodeProgress[contentId].episodeProgress.findIndex(
+            ep => ep.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber
+          );
+          if (epIndex >= 0) {
+            allEpisodeProgress[contentId].episodeProgress[epIndex].progress = progressValue;
+          } else {
+            allEpisodeProgress[contentId].episodeProgress.push({
+              seasonNumber: parseInt(seasonNumber),
+              episodeNumber: parseInt(episodeNumber),
+              progress: progressValue,
+              completed: completed
+            });
+          }
+          
+          if (completed || progressValue >= (contentDuration - 30)) {
+            const nextBtn = document.getElementById('nextEpisodeBtn');
+            if (nextBtn) {
+              nextBtn.style.display = 'inline-block';
+            }
+          }
+        } else {
+          const response = await fetch(`${WATCH_HISTORY_BASE}/progress`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              user: userId,
+              profile: profileId,
+              content: contentId,
+              progress: progressValue
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update movie progress');
+          }
+          
+          if (!allEpisodeProgress[contentId]) {
+            allEpisodeProgress[contentId] = {};
+          }
+          allEpisodeProgress[contentId].progress = progressValue;
+        }
+        
+        console.log(`Progress saved: ${formatPlaybackTime(progressValue)} for profile ${profileId}`);
+      } catch (error) {
+        console.error('Failed to update progress:', error);
+      }
+    }
+
+    function formatPlaybackTime(seconds) {
+      const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${minutes}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function seekRelative(deltaSeconds) {
+      if (!videoPlayer.duration || Number.isNaN(videoPlayer.duration)) {
+        return;
+      }
+      const newTime = Math.min(
+        Math.max(0, (videoPlayer.currentTime || 0) + deltaSeconds),
+        videoPlayer.duration
+      );
+      videoPlayer.currentTime = newTime;
+      statusText.textContent = deltaSeconds > 0
+        ? `Skipped forward ${Math.abs(deltaSeconds)} seconds`
+        : `Skipped back ${Math.abs(deltaSeconds)} seconds`;
+      sendProgressUpdate();
+    }
+
+    function updateResumeButtonState() {
+      resumeBtn.disabled = false;
+      resumeBtn.style.opacity = '1';
+      if (videoPlayer.paused) {
+        resumeBtn.innerHTML = '▶';
+        resumeBtn.title = 'Play';
+      } else {
+        resumeBtn.innerHTML = '❚❚';
+        resumeBtn.title = 'Pause';
+      }
+    }
+
+    function showRepeatButton() {
+      const overlay = document.getElementById('repeatOverlay');
+      overlay.classList.add('show');
+    }
+
+    function hideRepeatButton() {
+      const overlay = document.getElementById('repeatOverlay');
+      overlay.classList.remove('show');
+    }
+
+    document.getElementById('repeatBtn').addEventListener('click', () => {
+      hideRepeatButton();
+      videoPlayer.currentTime = 0;
+      videoPlayer.play();
+      sendProgressUpdate(0);
+    });
+
+    videoPlayer.addEventListener('play', () => {
+      hideRepeatButton();
+    });
+
+    function showLoadingOverlay(message = 'Loading...') {
+      const overlay = document.getElementById('loadingOverlay');
+      const text = overlay.querySelector('.loading-text');
+      text.textContent = message;
+      overlay.classList.add('show');
+    }
+
+    function hideLoadingOverlay() {
+      const overlay = document.getElementById('loadingOverlay');
+      overlay.classList.remove('show');
+    }
+
+    initPlayer();
+  </script>
+</body>
+</html>

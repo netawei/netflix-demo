@@ -1,16 +1,23 @@
 const express = require('express');
 const router = express.Router();
+const upload = require('../config/cloudinary'); 
 const {
     createContent,
     getAllContent,
-    searchContent,
+    getContentCast,
+    getContentById,
     updateContent,
     deleteContent 
 } = require('../controllers/contentController');
 
-router.post('/', createContent);
+router.post('/', 
+    upload.any(),
+    createContent
+);
+
 router.get('/', getAllContent);
-router.get('/search', searchContent);
+router.get('/:id/cast', getContentCast);
+router.get('/:id', getContentById);
 router.put('/:id', updateContent);
 router.delete('/:id', deleteContent);
 
