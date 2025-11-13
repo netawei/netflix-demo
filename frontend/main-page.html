@@ -357,8 +357,6 @@
     <div class="logo">Netflix</div>
     <ul>
       <li><a href="#">בית</a></li>
-      <li><a href="#">סדרות</a></li>
-      <li><a href="#">סרטים</a></li>
       <li><a href="profiles.html">החלף פרופיל</a></li>
       <li><button id="logoutBtn">התנתקות</button></li>
     </ul>
@@ -389,9 +387,10 @@
     </div>
   
     <br />
-    <div class="catalog" id="favoritesCatalog"></div>
     <div id="genreFilter" class="genre-filter"></div>
+    <div class="catalog" id="favoritesCatalog"></div>
     <div class="catalog" id="newestCatalog"></div>
+    <div class="catalog" id="recommendedCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
   
@@ -435,6 +434,7 @@
     const catalogDiv = document.getElementById("catalog");
     const newestDiv = document.getElementById("newestCatalog");
     const favoritesDiv = document.getElementById("favoritesCatalog");
+    const recommandedDiv = document.getElementById("recommendedCatalog");
     const searchInput = document.getElementById("searchInput");
   
     let catalog = [];
@@ -1069,6 +1069,31 @@
       
       renderFavorites(items);
       renderNewest(newest);
+      // --- Calculate Just For You section ---
+const watchedGenresCount = {};
+
+Object.keys(watchHistoryMap).forEach(contentId => {
+  const content = catalog.find(c => c.id === contentId);
+  if (content && Array.isArray(content.genre)) {
+    content.genre.forEach(g => {
+      watchedGenresCount[g] = (watchedGenresCount[g] || 0) + 1;
+    });
+  }
+});
+
+// Find top 2–3 genres watched most
+const topGenres = Object.entries(watchedGenresCount)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 3)
+  .map(entry => entry[0]);
+console.log(topGenres)
+// Pick 6–7 recommendations matching those genres, excluding already watched
+const recommended = catalog.filter(
+  c => c.genre.some(g => topGenres.includes(g)) && !watchHistoryMap[c.id]
+).slice(0, 7);
+
+const shuffled = recommended.sort(() => Math.random() - 0.5);
+renderRecommended(shuffled.slice(0, 7));
       groupByGenre();
       renderGroupedCatalog();
     }
@@ -1290,20 +1315,20 @@ function applyFilters() {
   renderedCount = 0;
   catalogDiv.innerHTML = "";
   newestDiv.innerHTML = "";
+  recommandedDiv.innerHTML = "";
   window.removeEventListener("scroll", handleScroll);
 
   const newest = [...filteredResults]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 10);
     renderNewest(newest);
-  if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0) {
-    // Default full view (no filters)
-    groupByGenre();
-    renderGroupedCatalog();
-    filteredResults = [];
-    renderedCount = 0;
-    return;
-  }
+    if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0 && !document.getElementById("filterSelect").value) {
+  // Default full view (no filters applied)
+  renderCatalog(catalog); // ✅ will re-render newest + favorites + Just for You + genres
+  filteredResults = [];
+  renderedCount = 0;
+  return;
+}
 
   // If results fit in one page — render them all and don't attach scroll
   if (filteredResults.length <= itemsPerPage) {
@@ -1411,7 +1436,53 @@ function renderNextBatch(itemsPerPage = 50) {
 
 
 
+function renderRecommended(list) {
+  const recommendedDiv = document.getElementById("recommendedCatalog");
+  recommendedDiv.innerHTML = "";
 
+  if (!list || list.length === 0) return;
+
+  const title = document.createElement("h2");
+  title.textContent = "מומלץ בשבילך";
+  title.style.textAlign = "center";
+  title.style.marginTop = "40px";
+  title.style.color = "#00c853";
+  title.style.fontSize = "28px";
+  title.style.fontWeight = "bold";
+
+  recommendedDiv.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.classList.add("catalog-grid");
+  grid.style.display = "flex";
+  grid.style.flexWrap = "wrap";
+  grid.style.gap = "20px";
+  grid.style.justifyContent = "flex-start";
+
+  list.forEach(item => {
+    const div = document.createElement("div");
+    div.classList.add("item");
+    const metadata = formatMovieMetadata(item);
+    div.innerHTML = `
+      <img src="${item.img}" alt="${item.name}">
+      <h3>${item.name}</h3>
+      ${metadata.ratingDisplay}
+      ${metadata.genreDisplay}
+      <p><strong>שנה:</strong> ${item.year}</p>
+      ${metadata.directorDisplay}
+      ${metadata.castDisplay}
+      ${metadata.descriptionDisplay}
+      ${metadata.watchSection}
+    `;
+
+    grid.appendChild(div);
+    setupFavoriteButton(div, item);
+    setupViewMoreCast(div, item);
+    setupWatchButtons(div, item);
+  });
+
+  recommendedDiv.appendChild(grid);
+}
 
     function renderNewest(list) {
       newestDiv.innerHTML = "";
