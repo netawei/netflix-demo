@@ -83,6 +83,66 @@ exports.getUserHistory = async (req, res) => {
 	}
 };
 
+exports.getBulkProgress = async (req, res) => {
+	try {
+		const { userId } = req.params;
+		const { profileId } = req.query;
+
+		if (!userId) {
+			return res.status(400).json({ message: "User ID is required" });
+		}
+
+		const filter = { user: userId };
+		if (profileId) {
+			filter.profile = profileId;
+		}
+
+		const histories = await WatchHistory.find(filter).lean();
+
+		const buildEntry = (entry) => ({
+			progress: entry.progress || 0,
+			lastWatchedAt: entry.lastWatchedAt || null,
+			currentEpisode: entry.currentEpisode || null,
+			episodeProgress: entry.episodeProgress || [],
+			profile: String(entry.profile),
+			content: String(entry.content),
+		});
+
+		if (profileId) {
+			const data = {};
+			histories.forEach((entry) => {
+				data[String(entry.content)] = buildEntry(entry);
+			});
+			return res.json({
+				profileId,
+				data,
+			});
+		}
+
+		const profiles = {};
+		histories.forEach((entry) => {
+			const profileKey = String(entry.profile);
+			if (!profiles[profileKey]) {
+				profiles[profileKey] = {};
+			}
+			profiles[profileKey][String(entry.content)] = buildEntry(entry);
+		});
+
+		return res.json({ profiles });
+	} catch (err) {
+		req.logError?.(
+			"Error fetching bulk progress",
+			err,
+			{
+				userId: req.params.userId,
+				profileId: req.query.profileId,
+			},
+			"watch:read"
+		);
+		res.status(500).json({ error: err.message });
+	}
+};
+
 exports.updateProgress = async (req, res) => {
 	try {
 		const { user, profile, content, progress } = req.body;
