@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const { logInfo, logError } = require("../utils/logger");
 
 dotenv.config();
 
@@ -16,8 +17,10 @@ const connectDB = async () => {
 			useUnifiedTopology: true,
 		});
 		console.log("MongoDB connected");
+		await logInfo("MongoDB connected", { host: MONGO_HOST }, "infrastructure:mongodb");
 	} catch (error) {
-		console.error(error);
+		console.error("MongoDB connection failed");
+		await logError("MongoDB connection failed", error, {}, "infrastructure:mongodb");
 		process.exit(1);
 	}
 };
