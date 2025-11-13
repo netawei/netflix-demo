@@ -445,6 +445,56 @@
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const WATCH_HISTORY_BASE = BACKEND_URL+'/api/watchHistory';
     let watchHistoryMap = {};
+    let lastSyncTime = Date.now();
+    const SYNC_INTERVAL = 30000; // Sync the likes every 30 seconds
+
+    async function syncLikesFromBackend() {
+      try {
+        const response = await fetch(BACKEND_URL + "/api/content");
+        if (!response.ok) throw new Error('Failed to sync likes');
+        
+        const contentData = await response.json();
+        const likesMap = {};
+        contentData.forEach(content => {
+          likesMap[String(content._id)] = content.likes || 0;
+        });
+        
+        // Update catalog data in memory with new likes counts
+        catalog.forEach(item => {
+          const contentId = String(item.id);
+          if (likesMap[contentId] !== undefined) {
+            item.likes = likesMap[contentId];
+          }
+        });
+        
+        // Update the UI with the catalog data
+          document.querySelectorAll('.like-count').forEach(countEl => {
+            const itemDiv = countEl.closest('.item');  // Find its parent card
+            const itemName = itemDiv.querySelector('h3')?.textContent;  // Get title
+            const item = catalog.find(i => i.name === itemName);  // Find in catalog
+            if (item) {
+              countEl.textContent = item.likes;  // Update the displayed number
+            }
+          });
+        
+        lastSyncTime = Date.now();
+      } catch (error) {
+        console.error('Error syncing likes:', error);
+      }
+    }
+
+    // Add visibility change listener to sync when user returns to page
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - lastSyncTime > 5000) {
+        syncLikesFromBackend();
+      }
+    });
+
+    setInterval(() => {
+      if (!document.hidden) {
+        syncLikesFromBackend();
+      }
+    }, SYNC_INTERVAL);
 
     async function loadWatchHistory() {
       if (!userId) {
@@ -1142,6 +1192,11 @@ renderRecommended(shuffled.slice(0, 7));
                   if (data.likedContent) {
                     likedContentIds = data.likedContent.map(id => String(id));
                   }
+                  // Update likes count from backend response
+                  if (data.updatedLikes !== undefined) {
+                    item.likes = data.updatedLikes;
+                    count.textContent = item.likes;
+                  }
                 } else {
                   const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
                   item.liked = wasLiked;
@@ -1524,6 +1579,11 @@ function renderRecommended(list) {
                   likedContentIds = data.likedContent.map(id => String(id));
                   console.log('Like saved successfully. Updated likedContentIds:', likedContentIds);
                 }
+                // Update likes count from backend response
+                if (data.updatedLikes !== undefined) {
+                  item.likes = data.updatedLikes;
+                  count.textContent = item.likes;
+                }
               } else {
                 // Revert if save failed
                 const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
@@ -1685,6 +1745,11 @@ function renderRecommended(list) {
                   if (data.likedContent) {
                     likedContentIds = data.likedContent.map(id => String(id));
                   }
+                  // Update likes count from backend response
+                  if (data.updatedLikes !== undefined) {
+                    item.likes = data.updatedLikes;
+                    count.textContent = item.likes;
+                  }
                 } else {
                   // Revert if save failed
                   const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
@@ -1836,6 +1901,11 @@ function renderRecommended(list) {
             if (data.likedContent) {
               likedContentIds = data.likedContent.map(id => String(id));
               console.log('Like saved successfully. Updated likedContentIds:', likedContentIds);
+            }
+            // Update likes count from backend response
+            if (data.updatedLikes !== undefined) {
+              item.likes = data.updatedLikes;
+              count.textContent = item.likes;
             }
           } else {
             // Revert if save failed
