@@ -1,4 +1,3 @@
-/** @format */
 
 const WatchHistory = require("../models/watchHistory");
 
@@ -61,13 +60,20 @@ exports.getAllHistories = async (req, res) => {
 exports.getUserHistory = async (req, res) => {
 	try {
 		const userId = req.params.userId;
-		const histories = await WatchHistory.find({ user: userId }).populate(
+		const profileId = req.query.profileId; 
+		const filter = { user: userId };
+
+		if (profileId) {
+			filter.profile = profileId;
+		}
+		
+		const histories = await WatchHistory.find(filter).populate(
 			"content",
 			"title genre"
 		);
 		req.logDebug?.(
 			"Fetched user watch history",
-			{ userId, count: histories.length },
+			{ userId, profileId, count: histories.length },
 			"watch:read"
 		);
 		res.json(histories);
@@ -76,7 +82,7 @@ exports.getUserHistory = async (req, res) => {
 		req.logError?.(
 			"Error fetching user watch history",
 			err,
-			{ userId: req.params.userId },
+			{ userId: req.params.userId, profileId: req.query.profileId },
 			"watch:read"
 		);
 		res.status(500).json({ error: err.message });
@@ -94,10 +100,15 @@ exports.getBulkProgress = async (req, res) => {
 
 		const filter = { user: userId };
 		if (profileId) {
-			filter.profile = profileId;
+			const mongoose = require('mongoose');
+			filter.profile = mongoose.Types.ObjectId.isValid(profileId) 
+				? new mongoose.Types.ObjectId(profileId) 
+				: profileId;
 		}
 
+		console.log('Fetching bulk progress with filter:', filter);
 		const histories = await WatchHistory.find(filter).lean();
+		console.log(`Found ${histories.length} history entries for filter:`, filter);
 
 		const buildEntry = (entry) => ({
 			progress: entry.progress || 0,
@@ -113,6 +124,7 @@ exports.getBulkProgress = async (req, res) => {
 			histories.forEach((entry) => {
 				data[String(entry.content)] = buildEntry(entry);
 			});
+			console.log('Returning profile-specific data:', { profileId, entriesCount: Object.keys(data).length });
 			return res.json({
 				profileId,
 				data,
@@ -128,8 +140,10 @@ exports.getBulkProgress = async (req, res) => {
 			profiles[profileKey][String(entry.content)] = buildEntry(entry);
 		});
 
+		console.log('Returning all profiles data:', { profilesCount: Object.keys(profiles).length });
 		return res.json({ profiles });
 	} catch (err) {
+		console.error('Error in getBulkProgress:', err);
 		req.logError?.(
 			"Error fetching bulk progress",
 			err,
@@ -146,21 +160,32 @@ exports.getBulkProgress = async (req, res) => {
 exports.updateProgress = async (req, res) => {
 	try {
 		const { user, profile, content, progress } = req.body;
+		
+		if (!user || !profile || !content) {
+			return res.status(400).json({ 
+				error: "Missing required fields: user, profile, and content are required" 
+			});
+		}
+		
 		req.logDebug?.(
 			"Update progress requested",
-			{ userId: user, profileId: profile, contentId: content },
+			{ userId: user, profileId: profile, contentId: content, progress },
 			"watch:update"
 		);
-		// findOneAndUpdate( filter, update, options )
+		
 		const record = await WatchHistory.findOneAndUpdate(
 			{ user, profile, content },
-			{ progress, lastWatchedAt: Date.now() },
-			{ new: true, upsert: true } //upsert: update or insert
+			{ 
+				progress, 
+				lastWatchedAt: Date.now() 
+			},
+			{ new: true, upsert: true }
 		);
+		
 		console.log("Watch progress updated for content:", content);
 		req.logInfo?.(
 			"Watch progress updated",
-			{ userId: user, profileId: profile, contentId: content },
+			{ userId: user, profileId: profile, contentId: content, progress },
 			"watch:update"
 		);
 		res.json(record);
@@ -176,7 +201,6 @@ exports.updateProgress = async (req, res) => {
 	}
 };
 
-// New function for updating episode progress
 exports.updateEpisodeProgress = async (req, res) => {
 	try {
 		const {
@@ -189,6 +213,12 @@ exports.updateEpisodeProgress = async (req, res) => {
 			completed,
 		} = req.body;
 
+		if (!user || !profile || !content) {
+			return res.status(400).json({ 
+				error: "Missing required fields: user, profile, and content are required" 
+			});
+		}
+
 		req.logDebug?.(
 			"Update episode progress requested",
 			{
@@ -197,14 +227,14 @@ exports.updateEpisodeProgress = async (req, res) => {
 				contentId: content,
 				seasonNumber,
 				episodeNumber,
+				progress
 			},
 			"watch:update"
 		);
 
-		const record = await WatchHistory.findOne({ user, content });
+		const record = await WatchHistory.findOne({ user, profile, content });
 
 		if (!record) {
-			// Create new record
 			const newRecord = new WatchHistory({
 				user,
 				profile,
@@ -237,8 +267,6 @@ exports.updateEpisodeProgress = async (req, res) => {
 			return res.json(newRecord);
 		}
 
-		// Update existing record
-		record.profile = profile;
 		const existingEpisode = record.episodeProgress.find(
 			(ep) =>
 				ep.seasonNumber === seasonNumber && ep.episodeNumber === episodeNumber
@@ -298,19 +326,27 @@ exports.updateEpisodeProgress = async (req, res) => {
 	}
 };
 
-// Get episode progress for a series
 exports.getEpisodeProgress = async (req, res) => {
 	try {
 		const { userId, contentId } = req.params;
+		const { profileId } = req.query; 
+		
 		req.logDebug?.(
 			"Episode progress requested",
-			{ userId, contentId },
+			{ userId, contentId, profileId },
 			"watch:read"
 		);
-		const record = await WatchHistory.findOne({
+		
+		const filter = {
 			user: userId,
 			content: contentId,
-		});
+		};
+		
+		if (profileId) {
+			filter.profile = profileId;
+		}
+		
+		const record = await WatchHistory.findOne(filter);
 
 		if (!record) {
 			return res.json({ episodeProgress: [], currentEpisode: null });
@@ -319,13 +355,14 @@ exports.getEpisodeProgress = async (req, res) => {
 		res.json({
 			episodeProgress: record.episodeProgress || [],
 			currentEpisode: record.currentEpisode || null,
+			progress: record.progress || 0 
 		});
 	} catch (err) {
 		console.error("Error fetching episode progress:", err);
 		req.logError?.(
 			"Error fetching episode progress",
 			err,
-			{ userId: req.params.userId, contentId: req.params.contentId },
+			{ userId: req.params.userId, contentId: req.params.contentId, profileId: req.query.profileId },
 			"watch:read"
 		);
 		res.status(500).json({ error: err.message });

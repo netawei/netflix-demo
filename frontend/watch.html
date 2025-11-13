@@ -209,7 +209,6 @@
       color: white;
     }
 
-    /* Loading Overlay */
     .loading-overlay {
       position: fixed;
       top: 0;
@@ -276,7 +275,7 @@
         transform: rotate(360deg);
       }
     }
-    /* Dropdown Styling */
+    
     .episodes-dropdown-btn {
       background: linear-gradient(135deg, rgba(229, 9, 20, 0.2), rgba(176, 6, 16, 0.2));
       border: 1px solid rgba(229, 9, 20, 0.5);
@@ -388,7 +387,6 @@
       margin-left: 8px;
     }
 
-    /* Icon Button Styling */
     .icon-btn {
       width: 44px;
       height: 44px;
@@ -406,7 +404,7 @@
       font-size: 10px;
       font-weight: bold;
     }
-    /* Forward and Rewind button styling */
+    
     #rewind10Btn, #forward10Btn {
       font-size: 22px;
       position: relative;
@@ -434,7 +432,7 @@
   </style>
 </head>
 <body>
-  <!-- Loading Overlay -->
+  
   <div id="loadingOverlay" class="loading-overlay">
     <div class="loading-content">
       <div class="loading-spinner"></div>
@@ -458,14 +456,13 @@
             <button id="episodesDropdownBtn" class="episodes-dropdown-btn" style="display:none;">
               Episodes ▼
             </button>
-            <!-- Move dropdown inside the relative div -->
+
             <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
           </div>
         </div>
         <div class="metadata" id="contentMeta"></div>
       </div>
       
-      <!-- Dropdown menu -->
       <div id="episodesDropdown" class="episodes-dropdown-menu" style="display:none;"></div>
       <p class="description" id="contentDescription"></p>
       <div id="errorBanner" class="error-banner" style="display:none;"></div>
@@ -506,6 +503,7 @@
     const isEpisode = seasonNumber && episodeNumber;
     const activeProfile = JSON.parse(localStorage.getItem("activeProfile"));
     const userId = activeProfile?.userId || localStorage.getItem("userId");
+    const profileId = activeProfile?.originalProfile?._id;
     const BACKEND_URL = localStorage.getItem("BackendURL");
     const statusText = document.getElementById('statusText');
     const videoPlayer = document.getElementById('videoPlayer');
@@ -522,14 +520,15 @@
       window.location.href = 'main-page.html';
     }
 
-    if (!userId) {
-      alert('Please login first');
+    if (!userId || !profileId) {
+      alert('Please login and select a profile first');
       window.location.href = 'index.html';
     }
 
     let currentProgress = 0;
     let progressInterval = null;
     let contentDuration = 0;
+    let allEpisodeProgress = {};
 
     backBtn.addEventListener('click', () => {
       window.location.href = 'main-page.html';
@@ -597,10 +596,8 @@
           videoPlayer.src = episode.videoUrl;
           contentDuration = episode.duration || 0;
           
-          // Add episode navigation buttons
           addEpisodeNavigation(content, season, episode);
         } else {
-          // Handle movie
           document.getElementById('contentTitle').textContent = content.title || 'Untitled';
           renderMetadata(content);
           document.getElementById('contentDescription').textContent = 
@@ -618,176 +615,148 @@
     }
 
     function addEpisodeNavigation(content, season, currentEpisode) {
-  const statusActions = document.querySelector('.status-actions');
-  
-  const currentIndex = season.episodes.findIndex(e => e.episodeNumber == episodeNumber);
-  const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex < season.episodes.length - 1;
-  
-  // Setup episodes dropdown button
-  const dropdownBtn = document.getElementById('episodesDropdownBtn');
-  const dropdownMenu = document.getElementById('episodesDropdown');
-  
-  dropdownBtn.style.display = 'inline-block';
-  
-  // Build dropdown content
-  buildEpisodesDropdown(content, dropdownMenu);
-  
-  // Toggle dropdown on click
-  dropdownBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isVisible = dropdownMenu.style.display === 'block';
-    dropdownMenu.style.display = isVisible ? 'none' : 'block';
-  });
-  
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
-      dropdownMenu.style.display = 'none';
-    }
-  });
-  
-  // Previous episode button - insert before play/pause button
-  if (hasPrevious) {
-    const prevBtn = document.createElement('button');
-    prevBtn.classList.add('btn-secondary', 'icon-btn');
-    prevBtn.innerHTML = '⏮';
-    prevBtn.title = 'Previous Episode';
-    prevBtn.addEventListener('click', () => {
-      const prevEpisode = season.episodes[currentIndex - 1];
-      navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
-    });
-    // Insert before play/pause button
-    const playPauseBtn = document.getElementById('resumeBtn');
-    statusActions.insertBefore(prevBtn, playPauseBtn);
-  }
-
- // Next episode button - insert after previous button
-  if (hasNext) {
-    const nextBtn = document.createElement('button');
-    nextBtn.classList.add('btn-primary', 'icon-btn');
-    nextBtn.innerHTML = '⏭';
-    nextBtn.title = 'Next Episode';
-    nextBtn.id = 'nextEpisodeBtn';
-    nextBtn.style.display = 'none';
-    nextBtn.addEventListener('click', () => {
-      const nextEpisode = season.episodes[currentIndex + 1];
-      navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
-    });
-    // Insert as second button (after previous, before forward)
-    const forwardBtn = document.getElementById('forward10Btn');
-    statusActions.insertBefore(nextBtn, forwardBtn);
-  }
-}
-
-async function buildEpisodesDropdown(content, dropdownMenu) {
-  dropdownMenu.innerHTML = '';
-  
-  // Fetch episode progress for all episodes
-  let episodeProgressData = {};
-  if (userId) {
-    try {
-      const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${contentId}`, {
-        method: 'GET',
-        credentials: 'include'
-      });
-      if (response.ok) {
-        episodeProgressData = await response.json();
-      }
-    } catch (error) {
-      console.error('Error loading episode progress:', error);
-    }
-  }
-  
-  content.seasons.forEach(season => {
-    const seasonGroup = document.createElement('div');
-    seasonGroup.classList.add('season-group');
-    
-    const seasonHeader = document.createElement('div');
-    seasonHeader.classList.add('season-header');
-    seasonHeader.textContent = `Season ${season.seasonNumber} (${season.episodes.length} episodes)`;
-    
-    const episodesList = document.createElement('div');
-    episodesList.classList.add('episodes-list-dropdown');
-    episodesList.style.display = season.seasonNumber == seasonNumber ? 'block' : 'none';
-    
-    seasonHeader.addEventListener('click', () => {
-      const isVisible = episodesList.style.display === 'block';
-      episodesList.style.display = isVisible ? 'none' : 'block';
-    });
-    
-    season.episodes.forEach(ep => {
-      const episodeItem = document.createElement('div');
-      episodeItem.classList.add('episode-item-dropdown');
+      const statusActions = document.querySelector('.status-actions');
       
-      // Check if this is the current episode
-      if (season.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber) {
-        episodeItem.classList.add('current');
-      }
+      const currentIndex = season.episodes.findIndex(e => e.episodeNumber == episodeNumber);
+      const hasPrevious = currentIndex > 0;
+      const hasNext = currentIndex < season.episodes.length - 1;
       
-      // Find progress for this episode
-      const episodeProgress = (episodeProgressData.episodeProgress || []).find(
-        progress => progress.seasonNumber === season.seasonNumber && 
-                   progress.episodeNumber === ep.episodeNumber
-      );
+      const dropdownBtn = document.getElementById('episodesDropdownBtn');
+      const dropdownMenu = document.getElementById('episodesDropdown');
       
-      const progress = episodeProgress?.progress || 0;
-      const duration = ep.duration || 0;
-      const progressPercentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
+      dropdownBtn.style.display = 'inline-block';
       
-      // Create episode info container
-      const episodeInfoDiv = document.createElement('div');
-      episodeInfoDiv.classList.add('episode-info-text');
+      buildEpisodesDropdown(content, dropdownMenu);
       
-      const episodeTitle = document.createElement('span');
-      episodeTitle.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
-      
-      const episodeDuration = document.createElement('span');
-      episodeDuration.classList.add('episode-duration');
-      if (duration > 0) {
-        episodeDuration.textContent = formatPlaybackTime(duration);
-      }
-      
-      episodeInfoDiv.appendChild(episodeTitle);
-      episodeInfoDiv.appendChild(episodeDuration);
-      episodeItem.appendChild(episodeInfoDiv);
-      
-      // Add progress bar if there's any progress
-      if (progressPercentage > 0) {
-        const progressContainer = document.createElement('div');
-        progressContainer.classList.add('episode-progress-container');
-        
-        const progressBar = document.createElement('div');
-        progressBar.classList.add('episode-progress-bar');
-        progressBar.style.width = `${progressPercentage}%`;
-        
-        progressContainer.appendChild(progressBar);
-        episodeItem.appendChild(progressContainer);
-      }
-      
-      episodeItem.addEventListener('click', () => {
-        navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
+      dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = dropdownMenu.style.display === 'block';
+        dropdownMenu.style.display = isVisible ? 'none' : 'block';
       });
       
-      episodesList.appendChild(episodeItem);
-    });
-    
-    seasonGroup.appendChild(seasonHeader);
-    seasonGroup.appendChild(episodesList);
-    dropdownMenu.appendChild(seasonGroup);
-  });
-}
+      document.addEventListener('click', (e) => {
+        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+          dropdownMenu.style.display = 'none';
+        }
+      });
+      
+      if (hasPrevious) {
+        const prevBtn = document.createElement('button');
+        prevBtn.classList.add('btn-secondary', 'icon-btn');
+        prevBtn.innerHTML = '⏮';
+        prevBtn.title = 'Previous Episode';
+        prevBtn.addEventListener('click', () => {
+          const prevEpisode = season.episodes[currentIndex - 1];
+          navigateToEpisode(contentId, seasonNumber, prevEpisode.episodeNumber);
+        });
+        const playPauseBtn = document.getElementById('resumeBtn');
+        statusActions.insertBefore(prevBtn, playPauseBtn);
+      }
 
-function navigateToEpisode(contentId, seasonNum, episodeNum) {
-  showLoadingOverlay('Loading next episode...');
-  const params = new URLSearchParams({
-    contentId: contentId,
-    seasonNumber: seasonNum,
-    episodeNumber: episodeNum,
-    restart: '0'
-  });
-  window.location.href = `watch.html?${params.toString()}`;
-}
+      if (hasNext) {
+        const nextBtn = document.createElement('button');
+        nextBtn.classList.add('btn-primary', 'icon-btn');
+        nextBtn.innerHTML = '⏭';
+        nextBtn.title = 'Next Episode';
+        nextBtn.id = 'nextEpisodeBtn';
+        nextBtn.style.display = 'none';
+        nextBtn.addEventListener('click', () => {
+          const nextEpisode = season.episodes[currentIndex + 1];
+          navigateToEpisode(contentId, seasonNumber, nextEpisode.episodeNumber);
+        });
+        const forwardBtn = document.getElementById('forward10Btn');
+        statusActions.insertBefore(nextBtn, forwardBtn);
+      }
+    }
+
+    async function buildEpisodesDropdown(content, dropdownMenu) {
+      dropdownMenu.innerHTML = '';
+      
+      content.seasons.forEach(season => {
+        const seasonGroup = document.createElement('div');
+        seasonGroup.classList.add('season-group');
+        
+        const seasonHeader = document.createElement('div');
+        seasonHeader.classList.add('season-header');
+        seasonHeader.textContent = `Season ${season.seasonNumber} (${season.episodes.length} episodes)`;
+        
+        const episodesList = document.createElement('div');
+        episodesList.classList.add('episodes-list-dropdown');
+        episodesList.style.display = season.seasonNumber == seasonNumber ? 'block' : 'none';
+        
+        seasonHeader.addEventListener('click', () => {
+          const isVisible = episodesList.style.display === 'block';
+          episodesList.style.display = isVisible ? 'none' : 'block';
+        });
+        
+        season.episodes.forEach(ep => {
+          const episodeItem = document.createElement('div');
+          episodeItem.classList.add('episode-item-dropdown');
+          
+          if (season.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber) {
+            episodeItem.classList.add('current');
+          }
+          
+          const episodeProgress = allEpisodeProgress[contentId]?.episodeProgress?.find(
+            progress => progress.seasonNumber === season.seasonNumber && 
+                       progress.episodeNumber === ep.episodeNumber
+          );
+          
+          const progress = episodeProgress?.progress || 0;
+          const duration = ep.duration || 0;
+          const progressPercentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
+          
+          const episodeInfoDiv = document.createElement('div');
+          episodeInfoDiv.classList.add('episode-info-text');
+          
+          const episodeTitle = document.createElement('span');
+          episodeTitle.textContent = `${ep.episodeNumber}. ${ep.title || `Episode ${ep.episodeNumber}`}`;
+          
+          const episodeDuration = document.createElement('span');
+          episodeDuration.classList.add('episode-duration');
+          if (duration > 0) {
+            episodeDuration.textContent = formatPlaybackTime(duration);
+          }
+          
+          episodeInfoDiv.appendChild(episodeTitle);
+          episodeInfoDiv.appendChild(episodeDuration);
+          episodeItem.appendChild(episodeInfoDiv);
+          
+          if (progressPercentage > 0) {
+            const progressContainer = document.createElement('div');
+            progressContainer.classList.add('episode-progress-container');
+            
+            const progressBar = document.createElement('div');
+            progressBar.classList.add('episode-progress-bar');
+            progressBar.style.width = `${progressPercentage}%`;
+            
+            progressContainer.appendChild(progressBar);
+            episodeItem.appendChild(progressContainer);
+          }
+          
+          episodeItem.addEventListener('click', () => {
+            navigateToEpisode(contentId, season.seasonNumber, ep.episodeNumber);
+          });
+          
+          episodesList.appendChild(episodeItem);
+        });
+        
+        seasonGroup.appendChild(seasonHeader);
+        seasonGroup.appendChild(episodesList);
+        dropdownMenu.appendChild(seasonGroup);
+      });
+    }
+
+    function navigateToEpisode(contentId, seasonNum, episodeNum) {
+      showLoadingOverlay('Loading next episode...');
+      const params = new URLSearchParams({
+        contentId: contentId,
+        seasonNumber: seasonNum,
+        episodeNumber: episodeNum,
+        restart: '0'
+      });
+      window.location.href = `watch.html?${params.toString()}`;
+    }
 
     function renderMetadata(content) {
       const meta = [];
@@ -811,40 +780,52 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
 
     async function loadWatchProgress() {
       try {
-        if (isEpisode) {
-          // Load episode-specific progress
-          const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${contentId}`, {
-            method: 'GET',
-            credentials: 'include'
-          });
-          if (!response.ok) {
-            throw new Error('Could not load watch history');
-          }
-          const data = await response.json();
-          const episodeProgress = (data.episodeProgress || []).find(
-            ep => ep.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber
-          );
-          currentProgress = episodeProgress?.progress || 0;
-        } else {
-          // Load movie progress
-          const response = await fetch(`${WATCH_HISTORY_BASE}/user/${userId}`, {
-            method: 'GET',
-            credentials: 'include'
-          });
-          if (!response.ok) {
-            throw new Error('Could not load watch history');
-          }
-          const histories = await response.json();
-          const entry = histories.find(h => {
-            const id = h.content?._id || h.content;
-            return String(id) === String(contentId);
-          });
-          currentProgress = entry?.progress || 0;
+        const params = new URLSearchParams();
+        params.append("profileId", profileId);
+        
+        const url = `${WATCH_HISTORY_BASE}/bulk-progress/${userId}?${params.toString()}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Could not load watch history');
         }
+        
+        const payload = await response.json();
+        const data = payload.data || {};
+        
+        allEpisodeProgress = {};
+        Object.entries(data).forEach(([cId, entry]) => {
+          allEpisodeProgress[cId] = {
+            progress: entry.progress || 0,
+            currentEpisode: entry.currentEpisode || null,
+            episodeProgress: entry.episodeProgress || [],
+            lastWatchedAt: entry.lastWatchedAt || null
+          };
+        });
+        
+        if (isEpisode) {
+          const contentData = allEpisodeProgress[contentId];
+          if (contentData) {
+            const episodeProgress = contentData.episodeProgress.find(
+              ep => ep.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber
+            );
+            currentProgress = episodeProgress?.progress || 0;
+          } else {
+            currentProgress = 0;
+          }
+        } else {
+          const contentData = allEpisodeProgress[contentId];
+          currentProgress = contentData?.progress || 0;
+        }
+        
         updateResumeButtonState();
       } catch (error) {
         console.error('Watch history load error:', error);
         currentProgress = 0;
+        allEpisodeProgress = {};
         updateResumeButtonState();
       }
     }
@@ -878,7 +859,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
         statusText.textContent = 'Paused';
         sendProgressUpdate();
         clearProgressInterval();
-        resumeBtn.innerHTML = '▶';
+        resumeBtn.innerHTML = '▶️';
         resumeBtn.title = 'Play';
       });
 
@@ -889,9 +870,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
         showRepeatButton();
       });
 
-      // IMPORTANT: Save progress every 10 seconds while playing
       videoPlayer.addEventListener('timeupdate', () => {
-        // Update status text with current time
         if (videoPlayer.currentTime && videoPlayer.duration) {
           const current = formatPlaybackTime(videoPlayer.currentTime);
           const total = formatPlaybackTime(videoPlayer.duration);
@@ -909,7 +888,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       clearProgressInterval();
       progressInterval = setInterval(() => {
         sendProgressUpdate();
-      }, 10000); // Save every 10 seconds
+      }, 10000);
     }
 
     function clearProgressInterval() {
@@ -920,7 +899,11 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
     }
 
     async function sendProgressUpdate(forcedValue) {
-      if (!userId || !contentId) return;
+      if (!userId || !contentId || !profileId) {
+        console.error('Missing required data for progress update');
+        return;
+      }
+      
       const progressValue = typeof forcedValue === 'number'
         ? forcedValue
         : Math.floor(videoPlayer.currentTime || 0);
@@ -930,10 +913,8 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
 
       try {
         if (isEpisode) {
-          console.log(activeProfile)
-          // Save episode progress
           const completed = progressValue >= (contentDuration * 0.9);
-          await fetch(`${WATCH_HISTORY_BASE}/episode-progress`, {
+          const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json'
@@ -941,7 +922,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             credentials: 'include',
             body: JSON.stringify({
               user: userId,
-              profile: activeProfile.originalProfile._id,
+              profile: profileId,  
               content: contentId,
               seasonNumber: parseInt(seasonNumber),
               episodeNumber: parseInt(episodeNumber),
@@ -950,7 +931,27 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             })
           });
           
-          // Show next episode button when episode is about to end
+          if (!response.ok) {
+            throw new Error('Failed to update episode progress');
+          }
+          
+          if (!allEpisodeProgress[contentId]) {
+            allEpisodeProgress[contentId] = { episodeProgress: [] };
+          }
+          const epIndex = allEpisodeProgress[contentId].episodeProgress.findIndex(
+            ep => ep.seasonNumber == seasonNumber && ep.episodeNumber == episodeNumber
+          );
+          if (epIndex >= 0) {
+            allEpisodeProgress[contentId].episodeProgress[epIndex].progress = progressValue;
+          } else {
+            allEpisodeProgress[contentId].episodeProgress.push({
+              seasonNumber: parseInt(seasonNumber),
+              episodeNumber: parseInt(episodeNumber),
+              progress: progressValue,
+              completed: completed
+            });
+          }
+          
           if (completed || progressValue >= (contentDuration - 30)) {
             const nextBtn = document.getElementById('nextEpisodeBtn');
             if (nextBtn) {
@@ -958,8 +959,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             }
           }
         } else {
-          // Save movie progress
-          await fetch(`${WATCH_HISTORY_BASE}/progress`, {
+          const response = await fetch(`${WATCH_HISTORY_BASE}/progress`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json'
@@ -967,13 +967,23 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
             credentials: 'include',
             body: JSON.stringify({
               user: userId,
-              profile: activeProfile.originalProfile._id,
+              profile: profileId,
               content: contentId,
               progress: progressValue
             })
           });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update movie progress');
+          }
+          
+          if (!allEpisodeProgress[contentId]) {
+            allEpisodeProgress[contentId] = {};
+          }
+          allEpisodeProgress[contentId].progress = progressValue;
         }
-        statusText.textContent = `Progress saved (${formatPlaybackTime(progressValue)})`;
+        
+        console.log(`Progress saved: ${formatPlaybackTime(progressValue)} for profile ${profileId}`);
       } catch (error) {
         console.error('Failed to update progress:', error);
       }
@@ -1009,7 +1019,7 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       resumeBtn.disabled = false;
       resumeBtn.style.opacity = '1';
       if (videoPlayer.paused) {
-        resumeBtn.innerHTML = '▶';
+        resumeBtn.innerHTML = '▶️';
         resumeBtn.title = 'Play';
       } else {
         resumeBtn.innerHTML = '❚❚';
@@ -1017,7 +1027,6 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       }
     }
 
-    // Repeat Button Functions
     function showRepeatButton() {
       const overlay = document.getElementById('repeatOverlay');
       overlay.classList.add('show');
@@ -1028,7 +1037,6 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       overlay.classList.remove('show');
     }
 
-    // Repeat Button Event Listener
     document.getElementById('repeatBtn').addEventListener('click', () => {
       hideRepeatButton();
       videoPlayer.currentTime = 0;
@@ -1036,12 +1044,10 @@ function navigateToEpisode(contentId, seasonNum, episodeNum) {
       sendProgressUpdate(0);
     });
 
-    // Hide repeat button when video starts playing
     videoPlayer.addEventListener('play', () => {
       hideRepeatButton();
     });
 
-    // Loading Overlay Functions
     function showLoadingOverlay(message = 'Loading...') {
       const overlay = document.getElementById('loadingOverlay');
       const text = overlay.querySelector('.loading-text');
