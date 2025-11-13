@@ -7,6 +7,12 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const path = require("path");
 const { connectDB } = require("./config/db");
+const {
+	requestContext,
+	requestLogger,
+	errorLogger,
+} = require("./middleware/logging");
+const { logInfo, logError } = require("./utils/logger");
 
 const userRoutes = require("./routes/userRoutes");
 const contentRoutes = require("./routes/contentRoutes");
@@ -22,6 +28,42 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 mongoose.set("strictQuery", false);
 
 const app = express();
+
+process.on("unhandledRejection", (reason) => {
+	let derivedMessage;
+	if (typeof reason === "string") {
+		derivedMessage = reason;
+	} else {
+		try {
+			derivedMessage = JSON.stringify(reason);
+		} catch (serializationErr) {
+			derivedMessage = "Unhandled rejection with non-serializable reason";
+		}
+	}
+	const error =
+		reason instanceof Error
+			? reason
+			: new Error(derivedMessage || "Unhandled promise rejection");
+	logError("Unhandled promise rejection", error, {}, "process").catch(
+		() => {}
+	);
+	console.error("Unhandled promise rejection", reason);
+});
+
+process.on("uncaughtException", (error) => {
+	logError("Uncaught exception", error, {}, "process")
+		.catch(() => {})
+		.finally(() => {
+			console.error("Uncaught exception", error);
+			process.exit(1);
+		});
+});
+
+process.on("SIGTERM", () => {
+	logInfo("Process received SIGTERM", {}, "process")
+		.catch(() => {})
+		.finally(() => process.exit(0));
+});
 
 // allow our local frontend to access backend api
 // app.use(
@@ -50,7 +92,9 @@ app.use((req, res, next) => {
 	}
 	next();
 });
+app.use(requestContext);
 app.use(bodyParser.json());
+app.use(requestLogger);
 app.use(
 	session({
 		secret: process.env.COOKIE_SECRET,
@@ -64,6 +108,18 @@ app.use("/api/users", userRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/watchHistory", watchHistoryRoutes);
 
+app.use(errorLogger);
+
+app.use((err, req, res, next) => {
+	if (res.headersSent) {
+		return next(err);
+	}
+	const statusCode = err.status || err.statusCode || 500;
+	res.status(statusCode).json({
+		message: err.message || "Server error",
+	});
+});
+
 // Serve static files from frontend directory
 app.use(express.static(path.join(__dirname, "../frontend")));
 
@@ -76,4 +132,7 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
 	console.log(`Server running on port ${PORT}`);
+	logInfo("HTTP server started", { port: PORT }, "infrastructure:http").catch(
+		() => {}
+	);
 });
