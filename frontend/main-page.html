@@ -357,8 +357,6 @@
     <div class="logo">Netflix</div>
     <ul>
       <li><a href="#">בית</a></li>
-      <li><a href="#">סדרות</a></li>
-      <li><a href="#">סרטים</a></li>
       <li><a href="profiles.html">החלף פרופיל</a></li>
       <li><button id="logoutBtn">התנתקות</button></li>
     </ul>
@@ -389,9 +387,10 @@
     </div>
   
     <br />
-    <div class="catalog" id="favoritesCatalog"></div>
     <div id="genreFilter" class="genre-filter"></div>
+    <div class="catalog" id="favoritesCatalog"></div>
     <div class="catalog" id="newestCatalog"></div>
+    <div class="catalog" id="recommendedCatalog"></div>
     <div class="catalog" id="catalog"></div>
   </main>
   
@@ -427,6 +426,7 @@
     const API_BASE_URL = BACKEND_URL + '/api/users';
     const userId = activeProfile?.userId || localStorage.getItem("userId");
     const profileName = activeProfile?.name;
+    const activeProfileId = activeProfile?.originalProfile?._id;
     let likedContentIds = []; // Array of content IDs that are liked by this profile
     let favoriteContentIds = []; // Array of content IDs that are favorited by this profile
     
@@ -434,6 +434,7 @@
     const catalogDiv = document.getElementById("catalog");
     const newestDiv = document.getElementById("newestCatalog");
     const favoritesDiv = document.getElementById("favoritesCatalog");
+    const recommandedDiv = document.getElementById("recommendedCatalog");
     const searchInput = document.getElementById("searchInput");
   
     let catalog = [];
@@ -497,68 +498,69 @@
     async function loadWatchHistory() {
       if (!userId) {
         watchHistoryMap = {};
-        return {};
+        return { historyMap: {}, episodeProgressData: {} };
       }
       try {
-        const response = await fetch(`${WATCH_HISTORY_BASE}/user/${userId}`, {
+        const params = new URLSearchParams();
+        if (activeProfileId) {
+          params.append("profileId", activeProfileId);
+        }
+        const url = `${WATCH_HISTORY_BASE}/bulk-progress/${userId}${params.toString() ? `?${params.toString()}` : ""}`;
+        const response = await fetch(url, {
           method: 'GET',
           credentials: 'include'
         });
         if (!response.ok) {
           throw new Error('Failed to load watch history');
         }
-        const histories = await response.json();
-        const map = {};
-        histories.forEach(entry => {
-          const contentId = entry.content?._id || entry.content;
-          if (contentId) {
-            map[String(contentId)] = {
+        const payload = await response.json();
+        const data = activeProfileId ? (payload.data || {}) : (payload.profiles || {});
+
+        const historyMap = {};
+        const episodeProgressData = {};
+
+        if (activeProfileId) {
+          Object.entries(data).forEach(([contentId, entry]) => {
+            historyMap[contentId] = {
               progress: entry.progress || 0,
               lastWatchedAt: entry.lastWatchedAt || null
             };
-          }
-        });
-        watchHistoryMap = map;
-        return map;
+            episodeProgressData[contentId] = {
+              currentEpisode: entry.currentEpisode || null,
+              episodeProgress: entry.episodeProgress || []
+            };
+          });
+        } else {
+          Object.values(data).forEach(profileMap => {
+            Object.entries(profileMap).forEach(([contentId, entry]) => {
+              historyMap[contentId] = {
+                progress: entry.progress || 0,
+                lastWatchedAt: entry.lastWatchedAt || null
+              };
+              episodeProgressData[contentId] = {
+                currentEpisode: entry.currentEpisode || null,
+                episodeProgress: entry.episodeProgress || []
+              };
+            });
+          });
+        }
+
+        watchHistoryMap = historyMap;
+        return { historyMap, episodeProgressData };
       } catch (error) {
         console.error('Error loading watch history:', error);
         watchHistoryMap = {};
-        return {};
+        return { historyMap: {}, episodeProgressData: {} };
       }
     }
 
     async function initCatalog() {
       try {
-
-
-        const [contentResponse, historyMap] = await Promise.all([
+        const [contentResponse, historyData] = await Promise.all([
           fetch(BACKEND_URL+ "/api/content").then(res => res.json()),
           loadWatchHistory()
         ]);
-
-
-        // Load episode progress for all series
-        const seriesIds = contentResponse.filter(c => c.type === 'series').map(c => c._id);
-        const episodeProgressData = {};
-        
-        if (userId) {
-          await Promise.all(
-            seriesIds.map(async (seriesId) => {
-              try {
-                const response = await fetch(`${WATCH_HISTORY_BASE}/episode-progress/${userId}/${seriesId}`, {
-                  method: 'GET',
-                  credentials: 'include'
-                });
-                if (response.ok) {
-                  const data = await response.json();
-                  episodeProgressData[seriesId] = data;
-                }
-              } catch (error) {
-                console.error(`Error loading progress for series ${seriesId}:`, error);
-              }
-            })
-          );
-        }
+        const { historyMap, episodeProgressData } = historyData;
 
         const popularityResponse = await fetch(WATCH_HISTORY_BASE + "/popularity");
         const popularityData = await popularityResponse.json();
@@ -577,8 +579,8 @@
           let currentEpisodeInfo = null;
           
           // For series, check episode progress
-          if (content.type === 'series' && episodeProgressData[content._id]) {
-            const seriesProgress = episodeProgressData[content._id];
+          if (content.type === 'series' && episodeProgressData[contentId]) {
+            const seriesProgress = episodeProgressData[contentId];
             if (seriesProgress.currentEpisode) {
               currentEpisodeInfo = seriesProgress.currentEpisode;
               // Find the progress for current episode
@@ -1067,6 +1069,31 @@
       
       renderFavorites(items);
       renderNewest(newest);
+      // --- Calculate Just For You section ---
+const watchedGenresCount = {};
+
+Object.keys(watchHistoryMap).forEach(contentId => {
+  const content = catalog.find(c => c.id === contentId);
+  if (content && Array.isArray(content.genre)) {
+    content.genre.forEach(g => {
+      watchedGenresCount[g] = (watchedGenresCount[g] || 0) + 1;
+    });
+  }
+});
+
+// Find top 2–3 genres watched most
+const topGenres = Object.entries(watchedGenresCount)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 3)
+  .map(entry => entry[0]);
+console.log(topGenres)
+// Pick 6–7 recommendations matching those genres, excluding already watched
+const recommended = catalog.filter(
+  c => c.genre.some(g => topGenres.includes(g)) && !watchHistoryMap[c.id]
+).slice(0, 7);
+
+const shuffled = recommended.sort(() => Math.random() - 0.5);
+renderRecommended(shuffled.slice(0, 7));
       groupByGenre();
       renderGroupedCatalog();
     }
@@ -1288,20 +1315,20 @@ function applyFilters() {
   renderedCount = 0;
   catalogDiv.innerHTML = "";
   newestDiv.innerHTML = "";
+  recommandedDiv.innerHTML = "";
   window.removeEventListener("scroll", handleScroll);
 
   const newest = [...filteredResults]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 10);
     renderNewest(newest);
-  if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0) {
-    // Default full view (no filters)
-    groupByGenre();
-    renderGroupedCatalog();
-    filteredResults = [];
-    renderedCount = 0;
-    return;
-  }
+    if (filteredResults.length === catalog.length && !query && selectedGenres.size === 0 && !document.getElementById("filterSelect").value) {
+  // Default full view (no filters applied)
+  renderCatalog(catalog); // ✅ will re-render newest + favorites + Just for You + genres
+  filteredResults = [];
+  renderedCount = 0;
+  return;
+}
 
   // If results fit in one page — render them all and don't attach scroll
   if (filteredResults.length <= itemsPerPage) {
@@ -1409,7 +1436,53 @@ function renderNextBatch(itemsPerPage = 50) {
 
 
 
+function renderRecommended(list) {
+  const recommendedDiv = document.getElementById("recommendedCatalog");
+  recommendedDiv.innerHTML = "";
 
+  if (!list || list.length === 0) return;
+
+  const title = document.createElement("h2");
+  title.textContent = "מומלץ בשבילך";
+  title.style.textAlign = "center";
+  title.style.marginTop = "40px";
+  title.style.color = "#00c853";
+  title.style.fontSize = "28px";
+  title.style.fontWeight = "bold";
+
+  recommendedDiv.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.classList.add("catalog-grid");
+  grid.style.display = "flex";
+  grid.style.flexWrap = "wrap";
+  grid.style.gap = "20px";
+  grid.style.justifyContent = "flex-start";
+
+  list.forEach(item => {
+    const div = document.createElement("div");
+    div.classList.add("item");
+    const metadata = formatMovieMetadata(item);
+    div.innerHTML = `
+      <img src="${item.img}" alt="${item.name}">
+      <h3>${item.name}</h3>
+      ${metadata.ratingDisplay}
+      ${metadata.genreDisplay}
+      <p><strong>שנה:</strong> ${item.year}</p>
+      ${metadata.directorDisplay}
+      ${metadata.castDisplay}
+      ${metadata.descriptionDisplay}
+      ${metadata.watchSection}
+    `;
+
+    grid.appendChild(div);
+    setupFavoriteButton(div, item);
+    setupViewMoreCast(div, item);
+    setupWatchButtons(div, item);
+  });
+
+  recommendedDiv.appendChild(grid);
+}
 
     function renderNewest(list) {
       newestDiv.innerHTML = "";
