@@ -5,14 +5,32 @@ const WatchHistory = require("../models/watchHistory");
 exports.createWatchHistory = async (req, res) => {
 	try {
 		const { user, profile, content } = req.body;
+		req.logDebug?.(
+			"Create watch history requested",
+			{ userId: user, profileId: profile, contentId: content },
+			"watch:create"
+		);
 
 		const exists = await WatchHistory.findOne({ user, profile, content });
 		if (exists) return res.status(400).json({ message: "Already exists" });
 
 		const record = new WatchHistory({ user, profile, content });
 		await record.save();
+		console.log("Watch history created:", record._id.toString());
+		req.logInfo?.(
+			"Watch history created",
+			{ userId: user, profileId: profile, contentId: content, historyId: record._id },
+			"watch:create"
+		);
 		res.status(201).json(record);
 	} catch (err) {
+		console.error("Error creating watch history:", err);
+		req.logError?.(
+			"Error creating watch history",
+			err,
+			{ userId: req.body?.user, profileId: req.body?.profile, contentId: req.body?.content },
+			"watch:create"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -22,8 +40,20 @@ exports.getAllHistories = async (req, res) => {
 		const histories = await WatchHistory.find()
 			.populate("user", "username email")
 			.populate("content", "title genre");
+		req.logDebug?.(
+			"Fetched watch histories",
+			{ count: histories.length },
+			"watch:read"
+		);
 		res.json(histories);
 	} catch (err) {
+		console.error("Error fetching watch histories:", err);
+		req.logError?.(
+			"Error fetching watch histories",
+			err,
+			{},
+			"watch:read"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -35,8 +65,20 @@ exports.getUserHistory = async (req, res) => {
 			"content",
 			"title genre"
 		);
+		req.logDebug?.(
+			"Fetched user watch history",
+			{ userId, count: histories.length },
+			"watch:read"
+		);
 		res.json(histories);
 	} catch (err) {
+		console.error("Error fetching user watch history:", err);
+		req.logError?.(
+			"Error fetching user watch history",
+			err,
+			{ userId: req.params.userId },
+			"watch:read"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -44,14 +86,32 @@ exports.getUserHistory = async (req, res) => {
 exports.updateProgress = async (req, res) => {
 	try {
 		const { user, profile, content, progress } = req.body;
+		req.logDebug?.(
+			"Update progress requested",
+			{ userId: user, profileId: profile, contentId: content },
+			"watch:update"
+		);
 		// findOneAndUpdate( filter, update, options )
 		const record = await WatchHistory.findOneAndUpdate(
 			{ user, profile, content },
 			{ progress, lastWatchedAt: Date.now() },
 			{ new: true, upsert: true } //upsert: update or insert
 		);
+		console.log("Watch progress updated for content:", content);
+		req.logInfo?.(
+			"Watch progress updated",
+			{ userId: user, profileId: profile, contentId: content },
+			"watch:update"
+		);
 		res.json(record);
 	} catch (err) {
+		console.error("Error updating watch progress:", err);
+		req.logError?.(
+			"Error updating watch progress",
+			err,
+			{ userId: req.body?.user, profileId: req.body?.profile, contentId: req.body?.content },
+			"watch:update"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -68,6 +128,18 @@ exports.updateEpisodeProgress = async (req, res) => {
 			progress,
 			completed,
 		} = req.body;
+
+		req.logDebug?.(
+			"Update episode progress requested",
+			{
+				userId: user,
+				profileId: profile,
+				contentId: content,
+				seasonNumber,
+				episodeNumber,
+			},
+			"watch:update"
+		);
 
 		const record = await WatchHistory.findOne({ user, content });
 
@@ -89,6 +161,19 @@ exports.updateEpisodeProgress = async (req, res) => {
 				lastWatchedAt: Date.now(),
 			});
 			await newRecord.save();
+			console.log("Episode progress record created:", newRecord._id.toString());
+			req.logInfo?.(
+				"Episode progress record created",
+				{
+					userId: user,
+					profileId: profile,
+					contentId: content,
+					seasonNumber,
+					episodeNumber,
+					historyId: newRecord._id,
+				},
+				"watch:update"
+			);
 			return res.json(newRecord);
 		}
 
@@ -117,8 +202,38 @@ exports.updateEpisodeProgress = async (req, res) => {
 		record.lastWatchedAt = Date.now();
 
 		await record.save();
+		console.log(
+			"Episode progress updated:",
+			`S${seasonNumber}E${episodeNumber}`,
+			"for content",
+			content
+		);
+		req.logInfo?.(
+			"Episode progress updated",
+			{
+				userId: user,
+				profileId: profile,
+				contentId: content,
+				seasonNumber,
+				episodeNumber,
+			},
+			"watch:update"
+		);
 		res.json(record);
 	} catch (err) {
+		console.error("Error updating episode progress:", err);
+		req.logError?.(
+			"Error updating episode progress",
+			err,
+			{
+				userId: req.body?.user,
+				profileId: req.body?.profile,
+				contentId: req.body?.content,
+				seasonNumber: req.body?.seasonNumber,
+				episodeNumber: req.body?.episodeNumber,
+			},
+			"watch:update"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -127,6 +242,11 @@ exports.updateEpisodeProgress = async (req, res) => {
 exports.getEpisodeProgress = async (req, res) => {
 	try {
 		const { userId, contentId } = req.params;
+		req.logDebug?.(
+			"Episode progress requested",
+			{ userId, contentId },
+			"watch:read"
+		);
 		const record = await WatchHistory.findOne({
 			user: userId,
 			content: contentId,
@@ -141,6 +261,13 @@ exports.getEpisodeProgress = async (req, res) => {
 			currentEpisode: record.currentEpisode || null,
 		});
 	} catch (err) {
+		console.error("Error fetching episode progress:", err);
+		req.logError?.(
+			"Error fetching episode progress",
+			err,
+			{ userId: req.params.userId, contentId: req.params.contentId },
+			"watch:read"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -148,8 +275,21 @@ exports.getEpisodeProgress = async (req, res) => {
 exports.deleteHistory = async (req, res) => {
 	try {
 		await WatchHistory.findByIdAndDelete(req.params.id);
+		console.log("Watch history deleted:", req.params.id);
+		req.logInfo?.(
+			"Watch history deleted",
+			{ historyId: req.params.id },
+			"watch:delete"
+		);
 		res.json({ message: "Deleted successfully" });
 	} catch (err) {
+		console.error("Error deleting watch history:", err);
+		req.logError?.(
+			"Error deleting watch history",
+			err,
+			{ historyId: req.params.id },
+			"watch:delete"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -172,8 +312,20 @@ exports.getPopularity = async (req, res) => {
 			},
 		]);
 
+		req.logDebug?.(
+			"Watch popularity fetched",
+			{ items: stats.length },
+			"watch:read"
+		);
 		res.json(stats);
 	} catch (err) {
+		console.error("Error fetching watch popularity:", err);
+		req.logError?.(
+			"Error fetching watch popularity",
+			err,
+			{},
+			"watch:read"
+		);
 		res.status(500).json({ error: err.message });
 	}
 };
