@@ -21,7 +21,7 @@ exports.registerUser = async (req, res) => {
 			);
 			return res.status(400).json({
 				success: false,
-				message: "המשתמש כבר קיים במערכת, בבקשה התחבר",
+				message: "User already exists in the system, please login",
 			});
 		}
 
@@ -50,7 +50,7 @@ exports.registerUser = async (req, res) => {
 
 		res.status(201).json({
 			success: true,
-			message: "נרשמת בהצלחה",
+			message: "Registration successful",
 			user: {
 				id: newUser._id,
 				name: newUser.name,
@@ -85,7 +85,7 @@ exports.loginUser = async (req, res) => {
 				"user:login"
 			);
 			return res.status(400).json({
-				message: "המייל לא קיים במערכת, בבקשה הירשם קודם",
+				message: "Email does not exist in the system, please register first",
 			});
 		}
 
@@ -96,7 +96,7 @@ exports.loginUser = async (req, res) => {
 				{ userId: user._id },
 				"user:login"
 			);
-			return res.status(400).json({ message: "סיסמה שגויה" });
+			return res.status(400).json({ message: "Incorrect password" });
 		}
 
 		req.session.user = {
@@ -223,7 +223,7 @@ exports.addProfile = async (req, res) => {
         "user:profiles"
       );
       return res.status(400).json({ 
-        message: 'Maximum of 5 profiles allowed',
+        message: 'You can add up to 5 profiles',
         canAddProfile: false
       });
     }
@@ -241,14 +241,14 @@ exports.addProfile = async (req, res) => {
         "user:profiles"
       );
       return res.status(400).json({ 
-        message: 'Profile name already exists. Please choose a different name.',
+        message: 'A profile with this name already exists, please choose a different profile',
         canAddProfile: true
       });
     }
 
     const newProfile = {
       name: name.trim(),
-      avatar: avatar || "https://picsum.photos/seed/" + Date.now() + "/200",
+      avatar: avatar,
       likedContent: [],
       favorites: [],
       preferences: {
@@ -290,8 +290,7 @@ exports.toggleContentLike = async (req, res) => {
 
 		if (!userId || !profileName || contentId === undefined) {
 			return res.status(400).json({
-				message:
-					"User ID, profile name, and content ID are required",
+				message: "User ID, profile name, and content ID are required",
 			});
 		}
 
@@ -966,7 +965,7 @@ exports.getStatistics = async (req, res) => {
       const userId = req.params.userId;
       const User = require('../models/User');
       const WatchHistory = require('../models/watchHistory');
-      // לא צריך את Content בכלל!
+      // Don't need Content at all!
       
       const user = await User.findById(userId).populate('profiles');
       if (!user) {
@@ -989,11 +988,11 @@ exports.getStatistics = async (req, res) => {
         dates.push(date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }));
       }
   
-      // הבא את ההיסטוריה עם populate של content
+      // Get the history with populated content
       const watchHistory = await WatchHistory.find({
         user: userId,
         lastWatchedAt: { $gte: startDate, $lte: endDate }
-      }).populate('content');  // זה יביא את התוכן אוטומטית!
+      }).populate('content');  // This will automatically fetch the content!
   
       const profileViews = [];
       for (const profile of user.profiles) {
@@ -1014,7 +1013,7 @@ exports.getStatistics = async (req, res) => {
   
       const genreCounts = {};
       watchHistory.forEach(watch => {
-        // השתמש ב-watch.content שהגיע מ-populate
+        // Use watch.content that came from populate
         if (watch.content && watch.content.genre) {
           watch.content.genre.forEach(g => {
             genreCounts[g] = (genreCounts[g] || 0) + 1;

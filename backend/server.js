@@ -1,5 +1,3 @@
-/** @format */
-
 const express = require("express");
 const bodyParser = require("body-parser");
 const session = require("express-session");
@@ -17,8 +15,6 @@ const { logInfo, logError } = require("./utils/logger");
 const userRoutes = require("./routes/userRoutes");
 const contentRoutes = require("./routes/contentRoutes");
 const watchHistoryRoutes = require("./routes/watchHistoryRoutes");
-// const cors = require("cors");
-
 dotenv.config();
 
 // Disable SSL verification for self-signed certificates (for development only)
@@ -65,16 +61,6 @@ process.on("SIGTERM", () => {
 		.finally(() => process.exit(0));
 });
 
-// allow our local frontend to access backend api
-// app.use(
-// 	cors({
-// 		origin: "*", // your frontend address
-// 		methods: ["GET", "POST", "PUT", "DELETE"],
-// 		credentials: true,
-// 	})
-// );
-
-// Connect Database
 connectDB();
 
 // Middleware - CORS
